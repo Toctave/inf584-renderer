@@ -127,7 +127,7 @@ std::ostream& operator<<(std::ostream& out, const Vec<T, N>& v) {
 }
 
 template<typename T, size_t N>
-Vec<T, N> dot(const Vec<T, N>& lhs, const Vec<T, N>& rhs) {
+T dot(const Vec<T, N>& lhs, const Vec<T, N>& rhs) {
     T sum = {0};
 
     for (size_t i = 0; i < N; i++) {
@@ -135,6 +135,11 @@ Vec<T, N> dot(const Vec<T, N>& lhs, const Vec<T, N>& rhs) {
     }
 
     return sum;
+}
+
+template<typename T, size_t N>
+Vec<T, N> lerp(const Vec<T, N>& lhs, const Vec<T, N>& rhs, const T& ratio) {
+    return lhs * (1 - ratio) + rhs * ratio;
 }
 
 template<typename T>

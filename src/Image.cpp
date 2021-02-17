@@ -31,3 +31,11 @@ void RGBImage::output_ppm(std::ostream& out) const {
     }
     out << "\n";
 }
+
+size_t RGBImage::width() const {
+    return width_;
+}
+
+size_t RGBImage::height() const {
+    return height_;
+}

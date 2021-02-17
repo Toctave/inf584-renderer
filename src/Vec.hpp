@@ -49,6 +49,9 @@ std::ostream& operator<<(std::ostream& out, const Vec<T, N>& v);
 template<typename T, size_t N>
 T dot(const Vec<T, N>& lhs, const Vec<T, N>& rhs);
 
+template<typename T, size_t N>
+Vec<T, N> lerp(const Vec<T, N>& lhs, const Vec<T, N>& rhs, const T& ratio);
+
 template<typename T>
 Vec<T, 3> cross(const Vec<T, 3>& lhs, const Vec<T, 3>& rhs);
 

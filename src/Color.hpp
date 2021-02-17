@@ -17,6 +17,7 @@ public:
     RGBColor();
     RGBColor(float r, float g, float b);
     RGBColor(float gray);
+    RGBColor(const Vec3& v);
     
     const RGBColor& operator*=(const RGBColor& other);
 

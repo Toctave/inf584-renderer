@@ -16,4 +16,7 @@ public:
     RGBColor& operator()(size_t i, size_t j);
 
     void output_ppm(std::ostream& out) const;
+
+    size_t width() const;
+    size_t height() const;
 };
