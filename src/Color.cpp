@@ -14,6 +14,9 @@ RGBColor::RGBColor(float gray) : Vec3(gray) {
 RGBColor::RGBColor(const Vec3& v) : Vec3(v) {
 }
 
+RGBColor RGBColor::from_normal(const Vec3& normal) {
+    return RGBColor(.5f * (normal + Vec3(1.0f)));
+}
 
 void clamp_to_01(float& val) {
     if (val < 0.0f) {

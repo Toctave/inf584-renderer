@@ -18,6 +18,8 @@ public:
     RGBColor(float r, float g, float b);
     RGBColor(float gray);
     RGBColor(const Vec3& v);
+
+    static RGBColor from_normal(const Vec3& normal);
     
     const RGBColor& operator*=(const RGBColor& other);
 

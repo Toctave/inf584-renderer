@@ -1,6 +1,7 @@
 #include "Vec.hpp"
 
 #include <stdexcept>
+#include <cmath>
 
 template<typename T, size_t N>
 Vec<T, N>::Vec(const T(&args)[N]) {
@@ -144,10 +145,34 @@ Vec<T, N> lerp(const Vec<T, N>& lhs, const Vec<T, N>& rhs, const T& ratio) {
 
 template<typename T>
 Vec<T, 3> cross(const Vec<T, 3>& lhs, const Vec<T, 3>& rhs) {
-    return Vec<T, 3>(
+    return Vec<T, 3>({
         lhs[1] * rhs[2] - lhs[2] * rhs[1],
         lhs[2] * rhs[0] - lhs[0] * rhs[2],
         lhs[0] * rhs[1] - lhs[1] * rhs[0]
-    );
+        });
+}
+
+template<typename T, size_t N>
+T Vec<T, N>::norm_squared() const {
+    return dot(*this, *this);
+}
+
+template<typename T, size_t N>
+T Vec<T, N>::norm() const {
+    return std::sqrt(norm_squared());
+}
+
+template<typename T, size_t N>
+void Vec<T, N>::normalize() {
+    *this /= norm();
+}
+
+template<typename T, size_t N>
+Vec<T, N> Vec<T, N>::normalized() const {
+    Vec<T, N> result = *this;
+
+    result.normalize();
+
+    return result;
 }
 

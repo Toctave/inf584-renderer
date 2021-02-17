@@ -26,6 +26,8 @@ public:
 
     T norm_squared() const;
     T norm() const;
+    void normalize();
+    Vec<T, N> normalized() const;
 };
 
 template<typename T, size_t N>
