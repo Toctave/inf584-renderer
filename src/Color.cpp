@@ -8,7 +8,8 @@ RGBColor::RGBColor() : Vec3() {
 RGBColor::RGBColor(float r, float g, float b) : Vec3({r, g, b}) {
 }
 
-RGBColor::RGBColor(float gray) : Vec3(gray) {
+RGBColor RGBColor::gray(float t) {
+    return RGBColor(t, t, t);
 }
 
 RGBColor::RGBColor(const Vec3& v) : Vec3(v) {

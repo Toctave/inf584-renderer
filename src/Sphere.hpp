@@ -3,7 +3,7 @@
 #include "Vec.hpp"
 #include "Shape.hpp"
 
-class Sphere {
+class Sphere : public Shape {
 private:
     Vec3 center_;
     float radius_;
@@ -11,6 +11,6 @@ private:
 public:
     Sphere(Vec3 center, float radius);
 
-    virtual bool ray_intersect(const Ray& ray);
-    virtual bool ray_intersect(const Ray& ray, Intersect& intersect);
+    virtual float ray_intersect(const Ray& ray) const ;
+    virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const;
 };

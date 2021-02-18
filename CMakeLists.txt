@@ -10,4 +10,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Image.cpp
   src/Camera.cpp
   src/Sphere.cpp
+  src/Scene.cpp
+  src/constants.cpp
+  src/Light.cpp
   )

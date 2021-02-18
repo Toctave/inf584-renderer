@@ -37,6 +37,9 @@ template<typename T, size_t N>
 Vec<T, N> operator-(const Vec<T, N>& lhs, const Vec<T, N>& rhs);
 
 template<typename T, size_t N>
+Vec<T, N> operator-(const Vec<T, N>& lhs);
+
+template<typename T, size_t N>
 Vec<T, N> operator*(const Vec<T, N>& lhs, const T& rhs);
 
 template<typename T, size_t N>

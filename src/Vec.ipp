@@ -100,6 +100,12 @@ Vec<T, N> operator-(const Vec<T, N>& lhs, const Vec<T, N>& rhs) {
 }
 
 template<typename T, size_t N>
+Vec<T, N> operator-(const Vec<T, N>& lhs) {
+    Vec<T, N> result;
+    return result -= lhs;
+}
+
+template<typename T, size_t N>
 Vec<T, N> operator*(const Vec<T, N>& lhs, const T& rhs) {
     Vec<T, N> result = lhs;
     return result *= rhs;
