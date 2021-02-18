@@ -1,4 +1,5 @@
 #include "Light.hpp"
+#include "Material.hpp"
 
 PointLight::PointLight(const Vec3& position, const RGBColor& color, float intensity)
     : position_(position), intensity_(color * intensity) {
@@ -9,6 +10,35 @@ LightSample PointLight::sample(const Vec3& point) const {
 
     return LightSample(
         Ray::segment(point, position_),
-        intensity_ / to_light.norm_squared()
+        intensity_ / to_light.norm_squared(),
+        1.0f
+    );
+}
+
+
+AreaLight::AreaLight(const Shape* shape)
+    : shape_(shape) {
+}
+
+LightSample AreaLight::sample(const Vec3& point) const {
+    float pdf;
+    Vec3 on_light = shape_->primitive()->sample(pdf);
+    
+    Ray itx_ray(point, on_light - point);
+    Intersect itx(itx_ray);
+    shape_->ray_intersect(itx_ray, itx);
+
+    on_light = itx_ray.at(itx.t);
+    if (itx.t < 1.0f - EPSILON) {
+    }
+
+    Vec3 wi = (on_light - point).normalized();
+    float solid_angle_pdf = pdf * (on_light - point).norm_squared()
+        / fabs(dot(itx.normal, -wi));
+
+    return LightSample(
+        Ray::segment(point, on_light),
+        shape_->material()->emit(on_light, -wi),
+        solid_angle_pdf
     );
 }

@@ -1,4 +1,5 @@
 #include "Sphere.hpp"
+#include "Sampling.hpp"
 
 Sphere::Sphere(Vec3 center, float radius)
     : center_(center), radius_(radius) {
@@ -66,4 +67,10 @@ bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
     }
 
     return hit;
+}
+
+Vec3 Sphere::sample(float& pdf) const {
+    pdf = 1.0f / (4.0f * M_PI * radius_ * radius_);
+
+    return center_ + sample_unit_sphere() * radius_;
 }

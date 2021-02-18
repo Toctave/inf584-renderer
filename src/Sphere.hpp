@@ -13,4 +13,6 @@ public:
 
     virtual float ray_intersect(const Ray& ray) const ;
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const;
+    virtual Vec3 sample(float& pdf) const;
+
 };

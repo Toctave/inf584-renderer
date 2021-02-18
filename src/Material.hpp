@@ -11,7 +11,7 @@ public:
                           const Vec3& wo) const {
         return RGBColor();
     };
-    virtual RGBColor emit(const Intersect& itx,
+    virtual RGBColor emit(const Vec3& point,
                           const Vec3& wo) const {
         return RGBColor();
     }
@@ -34,6 +34,6 @@ private:
 
 public:
     Emission(const RGBColor& irradiance);
-    virtual RGBColor emit(const Intersect& itx,
+    virtual RGBColor emit(const Vec3& itx,
                           const Vec3& wo) const override;
 };

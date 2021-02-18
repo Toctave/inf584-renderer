@@ -8,6 +8,10 @@ const Primitive* Shape::primitive() const {
     return primitive_;
 }
 
+const Material* Shape::material() const {
+    return material_;
+}
+
 bool Shape::ray_intersect(const Ray& ray, Intersect& intersect) const {
     bool result = primitive_->ray_intersect(ray, intersect);
 

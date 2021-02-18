@@ -16,4 +16,5 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Lambert.cpp
   src/Emission.cpp
   src/Shape.cpp
+  src/Sampling.cpp
   )

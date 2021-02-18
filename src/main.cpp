@@ -12,32 +12,7 @@
 #include "Scene.hpp"
 #include "Light.hpp"
 #include "Material.hpp"
-
-float random_01() {
-    return static_cast<float>(rand()) / RAND_MAX;
-}
-
-Vec2 sample_unit_square() {
-    return Vec2({random_01(), random_01()});
-}
-
-Vec2 sample_unit_disc() {
-    Vec2 sq = sample_unit_square();
-    float theta = 2.0f * M_PI * sq[0];
-    float r = std::sqrt(sq[1]);
-    
-    return Vec2({r * std::cos(theta), r * std::sin(theta)});
-}
-
-Vec3 sample_hemisphere_cosine_weighted(float* pdf) {
-    Vec2 disc = sample_unit_disc();
-
-    Vec3 sample({disc[0], disc[1], std::sqrt(1.0f - disc.norm_squared())});
-
-    *pdf = sample[2] * disc.norm() / M_PI;
-
-    return sample;
-}
+#include "Sampling.hpp"
 
 RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
     static const RGBColor c1({.6, .6, .8});
@@ -47,7 +22,9 @@ RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
     return lerp(c1, c2, ratio);
 }
 
-RGBColor explicit_shade(const Intersect& itx, const Scene& scene) {
+RGBColor explicit_shade(const Intersect& itx,
+                        const Scene& scene,
+                        bool keep_lights) {
     Vec3 hit_point = itx.incoming.at(itx.t);
     Vec3 hover_point = hit_point + EPSILON * itx.normal;
     Vec3 wo = -itx.incoming.d;
@@ -62,26 +39,28 @@ RGBColor explicit_shade(const Intersect& itx, const Scene& scene) {
             continue;
         }
 
-        if (scene.ray_intersect(light_sample.shadow_ray) < 1.0f) {
+        if (scene.ray_intersect(light_sample.shadow_ray) < 1.0f - EPSILON) {
             continue;
         }
 
         RGBColor f = itx.material->brdf(itx,
                                         wi,
                                         wo);
-        result += u * f * light_sample.intensity;
+        result += u * f * light_sample.intensity / light_sample.pdf;
     }
-    RGBColor e = itx.material->emit(itx, wo);
-    result += e;
+    if (keep_lights) {
+        RGBColor e = itx.material->emit(hit_point, wo);
+        result += e;
+    }
 
     return result;
 }
 
-RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0) {
+RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0, bool keep_lights = true) {
     Intersect itx(ray);
     if (scene.ray_intersect(ray, itx)) {
         if (max_bounces == 0) {
-            return explicit_shade(itx, scene);
+            return explicit_shade(itx, scene, keep_lights);
         } else {
             Vec3 wo = -ray.d;
             Vec3 local_base_y = cross(wo, itx.normal).normalized();
@@ -102,7 +81,7 @@ RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0) {
             Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
                        wi);
             RGBColor incoming_radiance =
-                trace_ray(scene, bounce, max_bounces - 1);
+                trace_ray(scene, bounce, max_bounces - 1, false);
             
             RGBColor f = itx.material->brdf(itx,
                                             wi,
@@ -110,7 +89,7 @@ RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0) {
             float u = wi_sample[2]; // cosine factor
             RGBColor c = u * f * incoming_radiance;
 
-            return explicit_shade(itx, scene) + c / pdf;
+            return explicit_shade(itx, scene, keep_lights) + c / pdf;
         }
     } else {
         return RGBColor();
@@ -139,7 +118,7 @@ void render(RGBImage& output) {
     Shape shape3(&sphere3, &white);
     
     sc.add_shape(&shape1);
-    sc.add_shape(&shape2);
+    // sc.add_shape(&shape2);
     sc.add_shape(&shape3);
 
     PointLight pl1(Vec3({-1, 1, 0}),
@@ -149,11 +128,14 @@ void render(RGBImage& output) {
                  RGBColor({1, 1, 0}),
                  50.0f);
 
-    sc.add_light(&pl1);
+    AreaLight al(&shape2);
+    sc.add_light(&al);
     
-    const size_t sample_count = 1000;
+    const size_t sample_count = 200;
     const size_t bounces = 3;
+    
     for (size_t row = 0; row < output.height(); row++) {
+        std::cout << "row " << row << "\n";
         for (size_t col = 0; col < output.width(); col++) {
             for (size_t sample_i = 0; sample_i < sample_count; sample_i++) {
                 Vec2 screen_offset =
@@ -174,7 +156,7 @@ void render(RGBImage& output) {
 }
 
 int main(int argc, char** argv) {
-    RGBImage img(200, 200);
+    RGBImage img(300, 300);
     render(img);
     
     std::ofstream output_file("out.ppm");
