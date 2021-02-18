@@ -2,17 +2,22 @@
 
 #include "Color.hpp"
 #include "Vec.hpp"
+#include "Ray.hpp"
 
 struct LightSample {
-    Vec3 wi;
+    Ray shadow_ray;
     RGBColor intensity;
+
+    LightSample(const Ray& shadow_ray, const RGBColor& intensity)
+        : shadow_ray(shadow_ray), intensity(intensity) {}
 };
 
 class Light {
+public:
     virtual LightSample sample(const Vec3& point) const = 0;
 };
 
-class PointLight : Light {
+class PointLight : public Light {
 private:
     Vec3 position_;
     RGBColor intensity_;

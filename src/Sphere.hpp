@@ -3,7 +3,7 @@
 #include "Vec.hpp"
 #include "Shape.hpp"
 
-class Sphere : public Shape {
+class Sphere : public Primitive {
 private:
     Vec3 center_;
     float radius_;

@@ -5,12 +5,10 @@ PointLight::PointLight(const Vec3& position, const RGBColor& color, float intens
 }
 
 LightSample PointLight::sample(const Vec3& point) const {
-    LightSample sample;
-
     Vec3 to_light = position_ - point;
 
-    sample.wi = to_light.normalized();
-    sample.intensity = intensity_ / to_light.norm_squared();
-
-    return sample;
+    return LightSample(
+        Ray::segment(point, position_),
+        intensity_ / to_light.norm_squared()
+    );
 }

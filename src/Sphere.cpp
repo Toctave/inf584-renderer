@@ -63,7 +63,6 @@ bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
     if (hit) {
         Vec3 point = ray.at(intersect.t);
         intersect.normal = (point - center_) / radius_;
-        intersect.shape = this;
     }
 
     return hit;

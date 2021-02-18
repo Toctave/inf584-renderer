@@ -8,6 +8,13 @@ struct Ray {
     Vec3 d;
     float tmax;
 
+    static Ray segment(Vec3 v1, Vec3 v2) {
+        Ray result(v1, v2 - v1);
+        result.tmax = 1.0f;
+        
+        return result;
+    }
+
     Ray(const Vec3& o, const Vec3& d)
         : d(d), o(o), tmax(INFTY) {
     }

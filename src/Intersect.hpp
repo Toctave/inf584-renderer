@@ -4,6 +4,7 @@
 #include <limits>
 
 class Shape;
+class Material;
 
 struct Intersect {
     const Ray& incoming;
@@ -11,12 +12,15 @@ struct Intersect {
     float t;
 
     const Shape* shape;
+    const Material* material;
+    
     Vec3 normal;
     // Vec2 uv;
 
     Intersect(const Ray& r)
         : incoming(r),
-          shape(nullptr) {
+          shape(nullptr),
+          material(nullptr) {
     }
 
 };

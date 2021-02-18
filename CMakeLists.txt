@@ -13,4 +13,6 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Scene.cpp
   src/constants.cpp
   src/Light.cpp
+  src/Lambert.cpp
+  src/Shape.cpp
   )
