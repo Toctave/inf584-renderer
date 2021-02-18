@@ -14,5 +14,6 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/constants.cpp
   src/Light.cpp
   src/Lambert.cpp
+  src/Emission.cpp
   src/Shape.cpp
   )

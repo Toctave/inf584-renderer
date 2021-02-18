@@ -10,8 +10,6 @@ struct RGB8 {
 
 class RGBColor : public Vec3 {
 private:
-    float norm_squared() const;
-    float norm() const;
     
 public:
     RGBColor();
