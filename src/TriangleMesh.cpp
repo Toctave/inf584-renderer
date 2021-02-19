@@ -1,4 +1,5 @@
 #include "TriangleMesh.hpp"
+#include "BVH.hpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.hpp"
@@ -81,15 +82,19 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
     auto& shape = shapes[0];
 
     size_t index_offset = 0;
-    for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
+    for (size_t f = 0;
+         f < shape.mesh.num_face_vertices.size();
+         f++) {
         int fv = shape.mesh.num_face_vertices[f];
         assert(fv == 3);
 
-        for (int v = 0; v < fv; v++) {
-            tinyobj::index_t idx = shape.mesh.indices[index_offset + v];
-            indices_.push_back(idx.vertex_index);
-        }
-
+        Vec3s triangle({
+            static_cast<size_t>(shape.mesh.indices[index_offset].vertex_index),
+            static_cast<size_t>(shape.mesh.indices[index_offset + 1].vertex_index),
+            static_cast<size_t>(shape.mesh.indices[index_offset + 2].vertex_index)
+        });
+        
+        triangles_.push_back(triangle);
         index_offset += fv;
     }
 
@@ -102,43 +107,98 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
                 attrib.vertices[v * 3 + 2]
             }));
     }
+
+    bvh_ = new BVHNode(BVHNode::from_mesh(*this));
+}
+
+float bvh_intersect(const TriangleMesh& mesh,
+                    const BVHNode* node,
+                    const Ray& ray) {
+    if (!node->box().ray_intersect(ray)) {
+        return INFTY;
+    }
+    
+    if (node->is_leaf()) {
+        float tmin = INFTY;
+        for (size_t idx : node->indices()) {
+            const Vec3s& triangle = mesh.triangles()[idx];
+
+            float t = triangle_ray_intersect(
+                {mesh.vertices()[triangle[0]],
+                 mesh.vertices()[triangle[1]],
+                 mesh.vertices()[triangle[2]]},
+                ray
+            );
+            if (t < tmin) {
+                tmin = t;
+            }
+        }
+        return tmin;
+    } else {
+        return std::min(
+            bvh_intersect(mesh, node->left(), ray),
+            bvh_intersect(mesh, node->right(), ray)
+        );
+    }
+}
+
+bool bvh_intersect(const TriangleMesh& mesh,
+                    const BVHNode* node,
+                    const Ray& ray,
+                    Intersect& itx) {
+    if (!node->box().ray_intersect(ray)) {
+        return false;
+    }
+    // @TODO : make this cleaner (no tmp Intersect object)
+    if (node->is_leaf()) {
+        bool any_hit = false;
+        for (size_t idx : node->indices()) {
+            const Vec3s& triangle = mesh.triangles()[idx];
+            Intersect tri_itx(ray);
+            bool hit = triangle_ray_intersect(
+                {mesh.vertices()[triangle[0]],
+                 mesh.vertices()[triangle[1]],
+                 mesh.vertices()[triangle[2]]},
+                ray,
+                tri_itx
+            );
+            if (hit && tri_itx.t < itx.t) {
+                itx = tri_itx;
+                any_hit = true;
+            }
+        }
+        return any_hit;
+    } else {
+        Intersect left_itx(ray);
+        bool left_hit = bvh_intersect(mesh, node->left(), ray, left_itx);
+        if (left_hit && left_itx.t < itx.t) {
+            itx = left_itx;
+        }
+        Intersect right_itx(ray);
+        bool right_hit = bvh_intersect(mesh, node->right(), ray, right_itx);
+        if (right_hit && right_itx.t < itx.t) {
+            itx = right_itx;
+        }
+        return right_hit || left_hit;
+    }
 }
 
 float TriangleMesh::ray_intersect(const Ray& ray) const {
-    float tmin = INFTY;
-
-    for (size_t ti = 0; ti < indices_.size() / 3; ti++) {
-        float t = triangle_ray_intersect(
-            {vertices_[indices_[ti * 3]], vertices_[indices_[ti * 3 + 1]], vertices_[indices_[ti * 3 + 2]] },
-            ray
-        );
-        if (t < tmin) {
-            tmin = t;
-        }
-    }
-    
-    return tmin;
+    return bvh_intersect(*this, bvh_, ray);
 }
 
 bool TriangleMesh::ray_intersect(const Ray& ray, Intersect& intersect) const {
-    bool any_hit = false;
-    for (size_t ti = 0; ti < indices_.size() / 3; ti++) {
-        Intersect triangle_itx(ray);
-        bool hit = triangle_ray_intersect(
-            {vertices_[indices_[ti * 3]], vertices_[indices_[ti * 3 + 1]], vertices_[indices_[ti * 3 + 2]] },
-            ray,
-            triangle_itx
-        );
-
-        if (hit && triangle_itx.t < intersect.t) {
-            intersect = triangle_itx;
-            any_hit = true;
-        }
-    }
-    
-    return any_hit;
+    return bvh_intersect(*this, bvh_, ray, intersect);
 }
 
 Vec3 TriangleMesh::sample(float& pdf) const {
     return Vec3();
+}
+
+const std::vector<Vec3>& TriangleMesh::vertices() const {
+    return vertices_;
+}
+
+const std::vector<Vec3s>& TriangleMesh::triangles() const {
+    return triangles_;
 }

@@ -19,6 +19,8 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Shape.cpp
   src/Sampling.cpp
   src/TriangleMesh.cpp
+  src/AABB.cpp
+  src/BVH.cpp
   )
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wno-unused-parameter)

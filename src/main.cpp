@@ -17,6 +17,7 @@
 #include "Material.hpp"
 #include "Sampling.hpp"
 #include "TriangleMesh.hpp"
+#include "BVH.hpp"
 
 RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
     static const RGBColor c1({.6, .6, .8});
@@ -110,7 +111,7 @@ void render(RGBImage& output) {
 
     initialize_random_system();
 
-    Camera cam(Vec3({-4.0f, 5.0f, 5.0f}),
+    Camera cam(Vec3({-1.0f, 8.0f, -12.0f}),
                Vec3({0, 0, 0}),
                Vec3({0, 0, 1}),
                M_PI * .5f,
@@ -118,12 +119,12 @@ void render(RGBImage& output) {
 
     LambertMaterial red(RGBColor(1, 0, 0));
     LambertMaterial white(RGBColor::gray(1.0f));
-    Emission blue(80.0f * RGBColor(.5f, .5f, 1.0f));
+    Emission blue(300.0f * RGBColor(.5f, .5f, 1.0f));
     
     TriangleMesh mesh("teapot.obj");
-    Sphere sphere1(Vec3({0, 0, 0}), .5f);
+    Sphere sphere1(Vec3({0, 0, 0}), 2.0f);
     Sphere sphere2(Vec3({-.5f, 5.0f, .6f}), .2f);
-    Sphere sphere3(Vec3({12.0f, .0f, .0f}), 10.0f);
+    Sphere sphere3(Vec3({114.0f, .0f, .0f}), 110.0f);
     Sphere sphere4(Vec3({-1.0f, -5.0f, .0f}), .4f);
 
     Shape shape1(&sphere1, &red);
@@ -150,7 +151,7 @@ void render(RGBImage& output) {
     sc.add_light(&al1);
     sc.add_light(&al2);
     
-    const size_t sample_count = 1;
+    const size_t sample_count = 100;
     const size_t bounces = 3;
     
     for (size_t row = 0; row < output.height(); row++) {
@@ -179,7 +180,13 @@ void fpe_handler(int signum) {
 }
 
 int main(int argc, char** argv) {
-    RGBImage img(64, 64);
+    /* TriangleMesh mesh("teapot.obj"); */
+
+    /* BVHNode bvh = BVHNode::from_mesh(mesh); */
+
+    /* return 0; */
+    
+    RGBImage img(256, 256);
     render(img);
 
     signal(SIGFPE, fpe_handler);
