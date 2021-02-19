@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(renderer)
+set (CMAKE_CXX_STANDARD 11)
 
 add_executable(${PROJECT_NAME})
 
@@ -17,4 +18,10 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Emission.cpp
   src/Shape.cpp
   src/Sampling.cpp
+  src/TriangleMesh.cpp
   )
+
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wno-unused-parameter)
+
+target_include_directories(${PROJECT_NAME} PRIVATE src/extern)
+

@@ -16,7 +16,7 @@ struct Ray {
     }
 
     Ray(const Vec3& o, const Vec3& d)
-        : d(d), o(o), tmax(INFTY) {
+        : o(o), d(d), tmax(INFTY) {
     }
 
     Vec3 at(float t) const {

@@ -30,6 +30,8 @@ void clamp_to_01(float& val) {
 float linear_to_srgb(float lin) {
     if (lin <= .0031308) {
         return lin * 12.92;
+    } else if (lin >= 1.0f) {
+        return 1.0f;
     } else {
         float a = .055f;
         return (1 + a) * std::pow(lin, 1.0f / 2.4f) - a;
@@ -48,6 +50,10 @@ RGB8 RGBColor::to_8bit() const {
     r = linear_to_srgb(r);
     g = linear_to_srgb(g);
     b = linear_to_srgb(b);
+
+    if (std::isnan(r) || std::isnan(g) || std::isnan(b)) {
+        std::cerr << "NAN in to_8bit\n";
+    }
 
     return {
         static_cast<uint8_t>(r * 255.0f),

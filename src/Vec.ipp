@@ -3,6 +3,16 @@
 #include <stdexcept>
 #include <cmath>
 
+// template<typename T, size_t N>
+// bool validate(const Vec<T, N>& lhs) {
+//     for (size_t i = 0; i < N; i++) {
+//         if (std::isnan(lhs[i])) {
+//             return false;
+//         }
+//     }
+//     return true;
+// }
+
 template<typename T, size_t N>
 Vec<T, N>::Vec(const T(&args)[N]) {
     for (size_t i = 0; i < N; i++) {
@@ -81,6 +91,9 @@ const Vec<T, N>& Vec<T, N>::operator*=(const T& other) {
 
 template<typename T, size_t N>
 const Vec<T, N>& Vec<T, N>::operator/=(const T& other) {
+    if (other == 0) {
+        throw std::invalid_argument("Divide by zero\n");
+    }
     for (size_t i = 0; i < N; i++) {
         co_[i] /= other;
     }

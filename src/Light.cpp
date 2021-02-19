@@ -26,10 +26,18 @@ LightSample AreaLight::sample(const Vec3& point) const {
     
     Ray itx_ray(point, on_light - point);
     Intersect itx(itx_ray);
-    shape_->ray_intersect(itx_ray, itx);
+    if (!shape_->ray_intersect(itx_ray, itx)) {
+        // @TODO : see why this can happen
+        return LightSample(
+            Ray::segment(point, on_light),
+            RGBColor(),
+            1.0f
+        );
+    }
 
     on_light = itx_ray.at(itx.t);
-    if (itx.t < 1.0f - EPSILON) {
+    if (itx.t < EPSILON) {
+        throw std::runtime_error("Shadow ray error");
     }
 
     Vec3 wi = (on_light - point).normalized();

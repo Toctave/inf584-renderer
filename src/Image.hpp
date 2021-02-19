@@ -5,9 +5,9 @@
 
 class RGBImage {
 private:
-    std::vector<RGBColor> pixels_;
     size_t width_;
     size_t height_;
+    std::vector<RGBColor> pixels_;
 
 public:
     RGBImage(size_t width, size_t height);

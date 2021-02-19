@@ -3,7 +3,7 @@
 #include <stdexcept>
 
 RGBImage::RGBImage(size_t width, size_t height)
-    : width_(width), height_(height), pixels_(width * height) {
+    : width_(width), height_(height), pixels_(width_ * height_) {
 }
 
 const RGBColor& RGBImage::operator()(size_t i, size_t j) const {

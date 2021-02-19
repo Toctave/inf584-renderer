@@ -1,7 +1,19 @@
 #include "Sampling.hpp"
 
+#include <random>
+
+static std::uniform_real_distribution<float> g_distribution;
+static std::mt19937 g_mt;
+
+void initialize_random_system() {
+    std::random_device rd;
+    g_mt = std::mt19937(rd());
+    g_distribution = std::uniform_real_distribution<float>(0.0f, 1.0f);
+}
+
 float random_01() {
-    return static_cast<float>(rand()) / RAND_MAX;
+    return g_distribution(g_mt);
+    // return static_cast<float>(rand()) / RAND_MAX;
 }
 
 Vec2 sample_unit_square() {

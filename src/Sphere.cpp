@@ -1,6 +1,8 @@
 #include "Sphere.hpp"
 #include "Sampling.hpp"
 
+#include <cassert>
+
 Sphere::Sphere(Vec3 center, float radius)
     : center_(center), radius_(radius) {
 }
@@ -72,5 +74,9 @@ bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
 Vec3 Sphere::sample(float& pdf) const {
     pdf = 1.0f / (4.0f * M_PI * radius_ * radius_);
 
-    return center_ + sample_unit_sphere() * radius_;
+    Vec3 p = center_ + sample_unit_sphere() * radius_;
+
+    assert(fabs((p - center_).norm() - radius_) < EPSILON);
+
+    return p;
 }
