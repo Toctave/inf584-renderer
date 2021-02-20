@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <cassert>
+#include <sstream>
 
 #include <csignal>
 #include <fenv.h>
@@ -18,6 +19,52 @@
 #include "Sampling.hpp"
 #include "TriangleMesh.hpp"
 #include "BVH.hpp"
+
+struct Options {
+    size_t width;
+    size_t height;
+    size_t sample_count;
+};
+
+size_t parse_size_t(const std::string& s) {
+    size_t v;
+    std::stringstream sstream(s);
+    sstream >> v;
+    return v;
+}
+
+void print_usage_string() {
+    std::cerr << "Usage : ./renderer -w width -h height -s sample_count\n";
+}
+
+Options parse_options(int argc, char** argv) {
+    if ((argc - 1) % 2 != 0) {
+        print_usage_string();
+        exit(1);
+    }
+    
+    Options options{64, 64, 32};
+
+    for (int i = 1; i < argc; i += 2) {
+        std::string option(argv[i]);
+        std::string value(argv[i + 1]);
+        
+        if (option == "-s") {
+            options.sample_count = parse_size_t(value);
+        }
+        else if (option == "-w") {
+            options.width = parse_size_t(value);
+        }
+        else if (option == "-h") {
+            options.height = parse_size_t(value);
+        } else {
+            print_usage_string();
+            exit(1);
+        }
+    }
+
+    return options;
+}
 
 RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
     static const RGBColor c1({.6, .6, .8});
@@ -106,7 +153,7 @@ RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0, bool ke
     }
 }
 
-void render(RGBImage& output) {
+void render(RGBImage& output, const Options& options) {
     Scene sc;
 
     initialize_random_system();
@@ -151,13 +198,14 @@ void render(RGBImage& output) {
     sc.add_light(&al1);
     sc.add_light(&al2);
     
-    const size_t sample_count = 100;
     const size_t bounces = 3;
     
     for (size_t row = 0; row < output.height(); row++) {
         std::cout << "row " << row << "\n";
         for (size_t col = 0; col < output.width(); col++) {
-            for (size_t sample_i = 0; sample_i < sample_count; sample_i++) {
+            for (size_t sample_i = 0;
+                 sample_i < options.sample_count;
+                 sample_i++) {
                 Vec2 screen_offset =
                     sample_unit_square() * .5f - Vec2({.5f, .5f});
                 Vec2 screen_sample({
@@ -171,7 +219,7 @@ void render(RGBImage& output) {
                 output(col, row) += radiance;
             }
 
-            output(col, row) /= static_cast<float>(sample_count);
+            output(col, row) /= static_cast<float>(options.sample_count);
         }
     }
 }
@@ -180,14 +228,10 @@ void fpe_handler(int signum) {
 }
 
 int main(int argc, char** argv) {
-    /* TriangleMesh mesh("teapot.obj"); */
-
-    /* BVHNode bvh = BVHNode::from_mesh(mesh); */
-
-    /* return 0; */
+    Options options = parse_options(argc, argv);
     
-    RGBImage img(256, 256);
-    render(img);
+    RGBImage img(options.width, options.height);
+    render(img, options);
 
     signal(SIGFPE, fpe_handler);
     feenableexcept(FE_INVALID);
