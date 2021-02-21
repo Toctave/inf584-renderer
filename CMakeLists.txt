@@ -24,6 +24,10 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Microfacet.cpp
   )
 
+
+find_package(OpenMP REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wno-unused-parameter)
 
 target_include_directories(${PROJECT_NAME} PRIVATE src/extern)

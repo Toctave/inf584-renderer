@@ -12,7 +12,12 @@ void initialize_random_system() {
 }
 
 float random_01() {
-    return g_distribution(g_mt);
+    float x;
+    #pragma omp critical
+    {
+        x = g_distribution(g_mt);
+    }
+    return x;
     // return static_cast<float>(rand()) / RAND_MAX;
 }
 

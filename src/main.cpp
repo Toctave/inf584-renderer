@@ -201,6 +201,7 @@ void render(RGBImage& output, const Options& options) {
     
     const size_t bounces = 3;
     
+#pragma omp parallel for schedule(static, 4)
     for (size_t row = 0; row < output.height(); row++) {
         std::cout << "row " << row << "\n";
         for (size_t col = 0; col < output.width(); col++) {
