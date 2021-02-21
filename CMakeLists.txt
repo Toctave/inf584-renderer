@@ -21,6 +21,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/TriangleMesh.cpp
   src/AABB.cpp
   src/BVH.cpp
+  src/Microfacet.cpp
   )
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wno-unused-parameter)

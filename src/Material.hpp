@@ -28,6 +28,21 @@ public:
                           const Vec3& wo) const;
 };
 
+class MicrofacetMaterial : public Material {
+private:
+    float roughness_;
+    float alpha_;
+    float alpha2_;
+    float k_;
+    float f0_;
+
+public:
+    MicrofacetMaterial(float roughness, float f0);
+    virtual RGBColor brdf(const Intersect& itx,
+                          const Vec3& wi,
+                          const Vec3& wo) const;
+};
+
 class Emission : public Material {
 private:
     RGBColor irradiance_;

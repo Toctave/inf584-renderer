@@ -167,6 +167,7 @@ void render(RGBImage& output, const Options& options) {
     LambertMaterial red(RGBColor(1, 0, 0));
     LambertMaterial white(RGBColor::gray(1.0f));
     Emission blue(300.0f * RGBColor(.5f, .5f, 1.0f));
+    MicrofacetMaterial glossy(.3f, 1.0f);
     
     TriangleMesh mesh("teapot.obj");
     Sphere sphere1(Vec3({0, 0, 0}), 2.0f);
@@ -178,7 +179,7 @@ void render(RGBImage& output, const Options& options) {
     Shape shape2(&sphere2, &blue);
     Shape shape3(&sphere3, &white);
     Shape shape4(&sphere4, &blue);
-    Shape shape5(&mesh, &red);
+    Shape shape5(&mesh, &glossy);
     
     /* sc.add_shape(&shape1); */
     sc.add_shape(&shape2);

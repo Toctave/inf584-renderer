@@ -116,6 +116,7 @@ BVHNode BVHNode::from_mesh(const TriangleMesh& mesh) {
                              mesh,
                              centroids,
                              0);
+
     return root;
 }
 
