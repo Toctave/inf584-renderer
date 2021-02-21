@@ -4,16 +4,16 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.hpp"
 
-bool triangle_ray_intersect(const Vec3 (&verts)[3], const Ray& ray) {
-    Vec3 edge1 = verts[1] - verts[0];
-    Vec3 edge2 = verts[2] - verts[0];
+bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray) {
+    Vec3 edge1 = *triangle.positions[1] - *triangle.positions[0];
+    Vec3 edge2 = *triangle.positions[2] - *triangle.positions[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
     if (a > -EPSILON && a < EPSILON)
         return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
-    Vec3 s = ray.o - verts[0];
+    Vec3 s = ray.o - *triangle.positions[0];
     float u = f * dot(s, h);
     if (u < 0.0f || u > 1.0f)
         return false;
@@ -31,16 +31,16 @@ bool triangle_ray_intersect(const Vec3 (&verts)[3], const Ray& ray) {
     }
 }
 
-bool triangle_ray_intersect(const Vec3 (&verts)[3], const Ray& ray, Intersect& intersect) {
-    Vec3 edge1 = verts[1] - verts[0];
-    Vec3 edge2 = verts[2] - verts[0];
+bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect& intersect) {
+    Vec3 edge1 = *triangle.positions[1] - *triangle.positions[0];
+    Vec3 edge2 = *triangle.positions[2] - *triangle.positions[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
     if (a > -EPSILON && a < EPSILON)
         return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
-    Vec3 s = ray.o - verts[0];
+    Vec3 s = ray.o - *triangle.positions[0];
     float u = f * dot(s, h);
     if (u < 0.0f || u > 1.0f)
         return false;
@@ -88,23 +88,41 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
         int fv = shape.mesh.num_face_vertices[f];
         assert(fv == 3);
 
-        Vec3s triangle({
+        Vec3s tpos({
             static_cast<size_t>(shape.mesh.indices[index_offset].vertex_index),
             static_cast<size_t>(shape.mesh.indices[index_offset + 1].vertex_index),
             static_cast<size_t>(shape.mesh.indices[index_offset + 2].vertex_index)
         });
+        triangle_pos_indices_.push_back(tpos);
         
-        triangles_.push_back(triangle);
+        Vec3s tnorm({
+            static_cast<size_t>(shape.mesh.indices[index_offset].normal_index),
+            static_cast<size_t>(shape.mesh.indices[index_offset + 1].normal_index),
+            static_cast<size_t>(shape.mesh.indices[index_offset + 2].normal_index)
+        });
+        triangle_normal_indices_.push_back(tnorm);
+
+        
         index_offset += fv;
     }
 
     assert(attrib.vertices.size() % 3 == 0);
-    vertices_.reserve(attrib.vertices.size() / 3);
+    vertex_pos_.reserve(attrib.vertices.size() / 3);
     for (size_t v = 0; v < attrib.vertices.size() / 3; v++) {
-        vertices_.push_back(Vec3({
+        vertex_pos_.push_back(Vec3({
                 attrib.vertices[v * 3],
                 attrib.vertices[v * 3 + 1],
                 attrib.vertices[v * 3 + 2]
+            }));
+    }
+
+    assert(attrib.normals.size() % 3 == 0);
+    vertex_normal_.reserve(attrib.normals.size() / 3);
+    for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
+        vertex_normal_.push_back(Vec3({
+                attrib.normals[v * 3],
+                attrib.normals[v * 3 + 1],
+                attrib.normals[v * 3 + 2]
             }));
     }
 
@@ -116,8 +134,10 @@ TriangleMesh::~TriangleMesh() {
 }
 
 TriangleMesh::TriangleMesh(TriangleMesh&& other)
-    : vertices_(other.vertices_),
-      triangles_(other.triangles_),
+    : vertex_pos_(other.vertex_pos_),
+      vertex_normal_(other.vertex_normal_),
+      triangle_pos_indices_(other.triangle_pos_indices_),
+      triangle_normal_indices_(other.triangle_normal_indices_),
       bvh_(other.bvh_) {
 }
 
@@ -130,14 +150,8 @@ bool bvh_intersect(const TriangleMesh& mesh,
     
     if (node->is_leaf()) {
         for (size_t idx : node->indices()) {
-            const Vec3s& triangle = mesh.triangles()[idx];
-
-            if (triangle_ray_intersect(
-                                       {mesh.vertices()[triangle[0]],
-                                        mesh.vertices()[triangle[1]],
-                                        mesh.vertices()[triangle[2]]},
-                                       ray
-                                       )) {
+            if (triangle_ray_intersect(mesh.triangle(idx),
+                                       ray)) {
                 return true;
             }
         }
@@ -159,15 +173,11 @@ bool bvh_intersect(const TriangleMesh& mesh,
     if (node->is_leaf()) {
         bool any_hit = false;
         for (size_t idx : node->indices()) {
-            const Vec3s& triangle = mesh.triangles()[idx];
             Intersect tri_itx;
-            bool hit = triangle_ray_intersect(
-                {mesh.vertices()[triangle[0]],
-                 mesh.vertices()[triangle[1]],
-                 mesh.vertices()[triangle[2]]},
-                ray,
-                tri_itx
-            );
+            bool hit = triangle_ray_intersect(mesh.triangle(idx),
+                                              ray,
+                                              tri_itx
+                                              );
             if (hit && tri_itx.t < itx.t) {
                 itx = tri_itx;
                 any_hit = true;
@@ -201,10 +211,17 @@ Vec3 TriangleMesh::sample(float& pdf) const {
     return Vec3();
 }
 
-const std::vector<Vec3>& TriangleMesh::vertices() const {
-    return vertices_;
+size_t TriangleMesh::triangle_count() const {
+    return triangle_pos_indices_.size();
 }
 
-const std::vector<Vec3s>& TriangleMesh::triangles() const {
-    return triangles_;
+Triangle TriangleMesh::triangle(size_t i) const {
+    Triangle t;
+
+    for (size_t j = 0; j < 3; j++) {
+        t.positions[j] = &vertex_pos_[triangle_pos_indices_[i][j]];
+        t.normals[j] = &vertex_normal_[triangle_normal_indices_[i][j]];
+    }
+
+    return t;
 }
