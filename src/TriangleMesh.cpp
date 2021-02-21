@@ -53,11 +53,33 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
     float t = f * dot(edge2, q);
     if (t > 0.0f && t < ray.tmax) {
         intersect.t = t;
-        intersect.normal = cross(edge1, edge2).normalized();
+        intersect.normal =
+            (u * (*triangle.normals[1])
+             + v * (*triangle.normals[2])
+             + (1.0f - u - v) * (*triangle.normals[0])).normalized();
         return true;
     } else {
         return false;
     }
+}
+
+void TriangleMesh::calculate_vertex_normals() {
+    vertex_normal_.resize(vertex_pos_.size());
+
+    for (const Vec3s& tposi : triangle_pos_indices_) {
+        Vec3 edge1 = vertex_pos_[tposi[1]] - vertex_pos_[tposi[0]];
+        Vec3 edge2 = vertex_pos_[tposi[2]] - vertex_pos_[tposi[0]];
+        Vec3 face_normal = cross(edge1, edge2); // weighted by the triangle area
+        for (size_t j = 0; j < 3; j++) {
+            vertex_normal_[tposi[j]] += face_normal;
+        }
+    }
+
+    for (Vec3& normal : vertex_normal_) {
+        normal.normalize();
+    }
+
+    triangle_normal_indices_ = triangle_pos_indices_;
 }
 
 TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
@@ -101,7 +123,6 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
             static_cast<size_t>(shape.mesh.indices[index_offset + 2].normal_index)
         });
         triangle_normal_indices_.push_back(tnorm);
-
         
         index_offset += fv;
     }
@@ -116,14 +137,18 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
             }));
     }
 
-    assert(attrib.normals.size() % 3 == 0);
-    vertex_normal_.reserve(attrib.normals.size() / 3);
-    for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
-        vertex_normal_.push_back(Vec3({
-                attrib.normals[v * 3],
-                attrib.normals[v * 3 + 1],
-                attrib.normals[v * 3 + 2]
-            }));
+    if (attrib.normals.size() == 0) {
+        calculate_vertex_normals();
+    } else {
+        assert(attrib.normals.size() % 3 == 0);
+        vertex_normal_.reserve(attrib.normals.size() / 3);
+        for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
+            vertex_normal_.push_back(Vec3({
+                        attrib.normals[v * 3],
+                        attrib.normals[v * 3 + 1],
+                        attrib.normals[v * 3 + 2]
+                    }));
+        }
     }
 
     bvh_ = new BVHNode(BVHNode::from_mesh(*this));

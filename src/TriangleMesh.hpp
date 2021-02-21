@@ -28,6 +28,7 @@ private:
     const BVHNode* bvh_;
 
     TriangleMesh& operator=(const TriangleMesh& other);
+    void calculate_vertex_normals();
     
 public:
     TriangleMesh(const std::string& obj_filepath);
