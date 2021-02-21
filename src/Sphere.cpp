@@ -3,11 +3,15 @@
 
 #include <cassert>
 
+void Sphere::print() const {
+    std::cout << "Sphere(" << center_ << ", " << radius_ << ")\n";
+}
+
 Sphere::Sphere(Vec3 center, float radius)
     : center_(center), radius_(radius) {
 }
 
-float Sphere::ray_intersect(const Ray& ray) const {
+bool Sphere::ray_intersect(const Ray& ray) const {
     float a = ray.d.norm_squared();
     float b = 2.0f * dot(ray.o - center_, ray.d);
     float c = (ray.o - center_).norm_squared() - radius_ * radius_;
@@ -15,7 +19,7 @@ float Sphere::ray_intersect(const Ray& ray) const {
     float disc = b * b - 4 * a * c;
     
     if (disc < 0.0f) {
-        return INFTY; // no intersection
+        return false; // no intersection
     }
 
     float sqdisc = std::sqrt(disc);
@@ -23,16 +27,16 @@ float Sphere::ray_intersect(const Ray& ray) const {
     float t0 = (-b - sqdisc) / (2.0f * a);
 
     if (t0 >= 0.0f && t0 < ray.tmax) {
-        return t0;
+        return true;
     }
 
     float t1 = (-b + sqdisc) / (2.0f * a);
 
     if (t1 >= 0.0f && t1 < ray.tmax) {
-        return t1;
+        return true;
     }
 
-    return INFTY;
+    return false;
 }
 
 bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
@@ -74,9 +78,8 @@ bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
 Vec3 Sphere::sample(float& pdf) const {
     pdf = 1.0f / (4.0f * M_PI * radius_ * radius_);
 
-    Vec3 p = center_ + sample_unit_sphere() * radius_;
-
-    assert(fabs((p - center_).norm() - radius_) < EPSILON);
+    // return a point slightly below the surface to make it easier to hit the shape
+    Vec3 p = center_ + sample_unit_sphere() * radius_ * (1.0f - EPSILON);
 
     return p;
 }

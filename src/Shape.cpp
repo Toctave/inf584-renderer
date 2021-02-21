@@ -1,5 +1,9 @@
 #include "Shape.hpp"
 
+void Primitive::print() const {
+    std::cout << "Primitive\n";
+}
+
 Shape::Shape(const Primitive* primitive, const Material* material)
     : material_(material), primitive_(primitive) {
 }
@@ -16,8 +20,9 @@ bool Shape::ray_intersect(const Ray& ray, Intersect& intersect) const {
     bool result = primitive_->ray_intersect(ray, intersect);
 
     if (result) {
-        intersect.material = material_;
+        intersect.ray = &ray;
         intersect.shape = this;
+        intersect.material = material_;
     }
 
     return result;

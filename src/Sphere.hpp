@@ -11,8 +11,8 @@ private:
 public:
     Sphere(Vec3 center, float radius);
 
-    virtual float ray_intersect(const Ray& ray) const ;
-    virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const;
-    virtual Vec3 sample(float& pdf) const;
-
+    virtual bool ray_intersect(const Ray& ray) const override;
+    virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const override;
+    virtual Vec3 sample(float& pdf) const override;
+    virtual void print() const override;
 };

@@ -11,7 +11,8 @@ private:
 
 public:
     bool ray_intersect(Ray& ray, Intersect& itx) const;
-    float ray_intersect(const Ray& ray) const;
+    bool ray_intersect(const Ray& ray) const;
+    
     void add_shape(const Shape* shape);
     void add_light(const Light* light);
 

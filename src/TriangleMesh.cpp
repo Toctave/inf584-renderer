@@ -4,30 +4,30 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.hpp"
 
-float triangle_ray_intersect(const Vec3 (&verts)[3], const Ray& ray) {
+bool triangle_ray_intersect(const Vec3 (&verts)[3], const Ray& ray) {
     Vec3 edge1 = verts[1] - verts[0];
     Vec3 edge2 = verts[2] - verts[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
     if (a > -EPSILON && a < EPSILON)
-        return INFTY;    // ray parallel to the triangle
+        return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
     Vec3 s = ray.o - verts[0];
     float u = f * dot(s, h);
     if (u < 0.0f || u > 1.0f)
-        return INFTY;
+        return false;
     Vec3 q = cross(s, edge1);
     float v = f * dot(ray.d, q);
     if (v < 0.0f || u + v > 1.0f)
-        return INFTY;
+        return false;
 
     // On calcule t pour savoir ou le point d'intersection se situe sur la ligne.
     float t = f * dot(edge2, q);
     if (t > 0.0f && t < ray.tmax) {
-        return t;
+        return true;
     } else {
-        return INFTY;
+        return false;
     }
 }
 
@@ -111,34 +111,40 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
     bvh_ = new BVHNode(BVHNode::from_mesh(*this));
 }
 
-float bvh_intersect(const TriangleMesh& mesh,
-                    const BVHNode* node,
-                    const Ray& ray) {
+TriangleMesh::~TriangleMesh() {
+    delete bvh_;
+}
+
+TriangleMesh::TriangleMesh(TriangleMesh&& other)
+    : vertices_(other.vertices_),
+      triangles_(other.triangles_),
+      bvh_(other.bvh_) {
+}
+
+bool bvh_intersect(const TriangleMesh& mesh,
+                   const BVHNode* node,
+                   const Ray& ray) {
     if (!node->box().ray_intersect(ray)) {
-        return INFTY;
+        return false;
     }
     
     if (node->is_leaf()) {
-        float tmin = INFTY;
         for (size_t idx : node->indices()) {
             const Vec3s& triangle = mesh.triangles()[idx];
 
-            float t = triangle_ray_intersect(
-                {mesh.vertices()[triangle[0]],
-                 mesh.vertices()[triangle[1]],
-                 mesh.vertices()[triangle[2]]},
-                ray
-            );
-            if (t < tmin) {
-                tmin = t;
+            if (triangle_ray_intersect(
+                                       {mesh.vertices()[triangle[0]],
+                                        mesh.vertices()[triangle[1]],
+                                        mesh.vertices()[triangle[2]]},
+                                       ray
+                                       )) {
+                return true;
             }
         }
-        return tmin;
+        return false;
     } else {
-        return std::min(
-            bvh_intersect(mesh, node->left(), ray),
-            bvh_intersect(mesh, node->right(), ray)
-        );
+        return bvh_intersect(mesh, node->left(), ray)
+            || bvh_intersect(mesh, node->right(), ray);
     }
 }
 
@@ -154,7 +160,7 @@ bool bvh_intersect(const TriangleMesh& mesh,
         bool any_hit = false;
         for (size_t idx : node->indices()) {
             const Vec3s& triangle = mesh.triangles()[idx];
-            Intersect tri_itx(ray);
+            Intersect tri_itx;
             bool hit = triangle_ray_intersect(
                 {mesh.vertices()[triangle[0]],
                  mesh.vertices()[triangle[1]],
@@ -169,12 +175,12 @@ bool bvh_intersect(const TriangleMesh& mesh,
         }
         return any_hit;
     } else {
-        Intersect left_itx(ray);
+        Intersect left_itx;
         bool left_hit = bvh_intersect(mesh, node->left(), ray, left_itx);
         if (left_hit && left_itx.t < itx.t) {
             itx = left_itx;
         }
-        Intersect right_itx(ray);
+        Intersect right_itx;
         bool right_hit = bvh_intersect(mesh, node->right(), ray, right_itx);
         if (right_hit && right_itx.t < itx.t) {
             itx = right_itx;
@@ -183,7 +189,7 @@ bool bvh_intersect(const TriangleMesh& mesh,
     }
 }
 
-float TriangleMesh::ray_intersect(const Ray& ray) const {
+bool TriangleMesh::ray_intersect(const Ray& ray) const {
     return bvh_intersect(*this, bvh_, ray);
 }
 

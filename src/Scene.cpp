@@ -14,16 +14,14 @@ bool Scene::ray_intersect(Ray& ray, Intersect& itx) const {
     return result;
 }
 
-float Scene::ray_intersect(const Ray& ray) const {
-    float tmin = ray.tmax;
+bool Scene::ray_intersect(const Ray& ray) const {
     for (const Shape* shape : shapes_) {
-        float t = shape->primitive()->ray_intersect(ray);
-        if (t < tmin) {
-            tmin = t;
+        if (shape->primitive()->ray_intersect(ray)) {
+            return true;
         }
     }
 
-    return tmin;
+    return false;
 }
 
 void Scene::add_shape(const Shape* shape) {

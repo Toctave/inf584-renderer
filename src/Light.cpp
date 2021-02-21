@@ -25,9 +25,10 @@ LightSample AreaLight::sample(const Vec3& point) const {
     Vec3 on_light = shape_->primitive()->sample(pdf);
     
     Ray itx_ray(point, on_light - point);
-    Intersect itx(itx_ray);
+    Intersect itx;
     if (!shape_->ray_intersect(itx_ray, itx)) {
-        // @TODO : see why this can happen
+        // sampled a point on the silhouette of the shape,
+        // ignore it
         return LightSample(
             Ray::segment(point, on_light),
             RGBColor(),

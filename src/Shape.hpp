@@ -4,9 +4,10 @@
 
 class Primitive {
 public:
-    virtual float ray_intersect(const Ray& ray) const = 0;
+    virtual bool ray_intersect(const Ray& ray) const = 0;
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const = 0;
     virtual Vec3 sample(float& pdf) const = 0;
+    virtual void print() const;
 };
 
 class Shape {
@@ -21,3 +22,4 @@ public:
     const Material* material() const;
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const;
 };
+

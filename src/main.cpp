@@ -74,12 +74,12 @@ RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
     return lerp(c1, c2, ratio);
 }
 
-RGBColor explicit_shade(const Intersect& itx,
+RGBColor explicit_shade(Intersect& itx,
                         const Scene& scene,
                         bool keep_lights) {
-    Vec3 hit_point = itx.incoming.at(itx.t);
+    Vec3 hit_point = itx.ray->at(itx.t);
     Vec3 hover_point = hit_point + EPSILON * itx.normal;
-    Vec3 wo = -itx.incoming.d;
+    Vec3 wo = -itx.ray->d;
 
     RGBColor result;
     for (const Light* light : scene.lights()) {
@@ -91,7 +91,7 @@ RGBColor explicit_shade(const Intersect& itx,
             continue;
         }
 
-        if (scene.ray_intersect(light_sample.shadow_ray) < 1.0f - EPSILON) {
+        if (scene.ray_intersect(light_sample.shadow_ray)) {
             continue;
         }
 
@@ -109,7 +109,7 @@ RGBColor explicit_shade(const Intersect& itx,
 }
 
 RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0, bool keep_lights = true) {
-    Intersect itx(ray);
+    Intersect itx;
     if (scene.ray_intersect(ray, itx)) {
         if (max_bounces == 0) {
             return explicit_shade(itx, scene, keep_lights);
