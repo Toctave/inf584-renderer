@@ -55,7 +55,7 @@ Vec3 sample_hemisphere_cosine_weighted(float* pdf) {
 
     Vec3 sample({disc[0], disc[1], std::sqrt(1.0f - disc.norm_squared())});
 
-    *pdf = sample[2] * disc.norm() / M_PI;
+    *pdf = sample[2] / (2.0f * M_PI);
 
     return sample;
 }
