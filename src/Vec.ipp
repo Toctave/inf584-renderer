@@ -91,10 +91,10 @@ const Vec<T, N>& Vec<T, N>::operator*=(const T& other) {
 
 template<typename T, size_t N>
 const Vec<T, N>& Vec<T, N>::operator/=(const T& other) {
-    if (other == 0) {
-        throw std::invalid_argument("Divide by zero\n");
-    }
     for (size_t i = 0; i < N; i++) {
+        if (other == 0 && co_[i] == 0) {
+            throw std::invalid_argument("Divide zero by zero\n");
+        }
         co_[i] /= other;
     }
     return *this;
