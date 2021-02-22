@@ -131,6 +131,12 @@ RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0, bool ke
 
             float pdf;
             Vec3 wi_sample = sample_hemisphere_cosine_weighted(&pdf);
+
+            if (pdf == 0.0f) {
+                // skip impossible samples
+                return explicit_shade(itx, scene, keep_lights);
+            }
+            
             Vec3 wi = wi_sample[0] * local_base_x
                 + wi_sample[1] * local_base_y
                 + wi_sample[2] * itx.normal;
