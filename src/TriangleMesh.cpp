@@ -36,7 +36,7 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
     Vec3 edge2 = *triangle.positions[2] - *triangle.positions[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
-    if (a > -EPSILON && a < EPSILON)
+    if (std::abs(a) < 1.0e-6f)
         return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
@@ -65,6 +65,9 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
 
 void TriangleMesh::calculate_vertex_normals() {
     vertex_normal_.resize(vertex_pos_.size());
+    for (Vec3& normal : vertex_normal_) {
+        normal = Vec3();
+    }
 
     for (const Vec3s& tposi : triangle_pos_indices_) {
         Vec3 edge1 = vertex_pos_[tposi[1]] - vertex_pos_[tposi[0]];
@@ -110,19 +113,23 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
         int fv = shape.mesh.num_face_vertices[f];
         assert(fv == 3);
 
-        Vec3s tpos({
-            static_cast<size_t>(shape.mesh.indices[index_offset].vertex_index),
-            static_cast<size_t>(shape.mesh.indices[index_offset + 1].vertex_index),
-            static_cast<size_t>(shape.mesh.indices[index_offset + 2].vertex_index)
-        });
-        triangle_pos_indices_.push_back(tpos);
+        // triangulate face as a fan
+        for (int second = 1; second + 1 < fv; second++) {
+            int third = second + 1;
+            Vec3s tpos({
+                    static_cast<size_t>(shape.mesh.indices[index_offset].vertex_index),
+                    static_cast<size_t>(shape.mesh.indices[index_offset + second].vertex_index),
+                    static_cast<size_t>(shape.mesh.indices[index_offset + third].vertex_index)
+                });
+            triangle_pos_indices_.push_back(tpos);
         
-        Vec3s tnorm({
-            static_cast<size_t>(shape.mesh.indices[index_offset].normal_index),
-            static_cast<size_t>(shape.mesh.indices[index_offset + 1].normal_index),
-            static_cast<size_t>(shape.mesh.indices[index_offset + 2].normal_index)
-        });
-        triangle_normal_indices_.push_back(tnorm);
+            Vec3s tnorm({
+                    static_cast<size_t>(shape.mesh.indices[index_offset].normal_index),
+                    static_cast<size_t>(shape.mesh.indices[index_offset + second].normal_index),
+                    static_cast<size_t>(shape.mesh.indices[index_offset + third].normal_index)
+                });
+            triangle_normal_indices_.push_back(tnorm);
+        }
         
         index_offset += fv;
     }
@@ -138,6 +145,7 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
     }
 
     if (attrib.normals.size() == 0) {
+        std::cout << "Computing vertex normals\n";
         calculate_vertex_normals();
     } else {
         assert(attrib.normals.size() % 3 == 0);

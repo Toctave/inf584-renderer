@@ -153,51 +153,51 @@ RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0, bool ke
     }
 }
 
+float radians(float deg) {
+    return M_PI * deg / 180.0f;
+}
+
 void render(RGBImage& output, const Options& options) {
     Scene sc;
 
     initialize_random_system();
 
-    Camera cam(Vec3({-1.0f, 8.0f, -12.0f}),
-               Vec3({0, 0, 0}),
+    Camera cam(Vec3({0.0f, -3.0f, 1.0f}),
                Vec3({0, 0, 1}),
-               M_PI * .5f,
+               Vec3({0, 0, 1}),
+               radians(90.0f),
                static_cast<float>(output.width()) / output.height());
 
     LambertMaterial red(RGBColor(1, 0, 0));
+    LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
     LambertMaterial white(RGBColor::gray(1.0f));
-    Emission blue(300.0f * RGBColor(.5f, .5f, 1.0f));
-    MicrofacetMaterial glossy(.3f, 1.0f);
+    Emission blue(30.0f * RGBColor(.5f, .5f, 1.0f));
+    MicrofacetMaterial glossy(.2f, 1.0f);
     
-    TriangleMesh mesh("teapot.obj");
-    Sphere sphere1(Vec3({0, 0, 0}), 2.0f);
-    Sphere sphere2(Vec3({-.5f, 5.0f, .6f}), .2f);
-    Sphere sphere3(Vec3({114.0f, .0f, .0f}), 110.0f);
-    Sphere sphere4(Vec3({-1.0f, -5.0f, .0f}), .4f);
+    TriangleMesh teapot_mesh("teapot.obj");
+    TriangleMesh box_mesh("box.obj");
+    TriangleMesh wall_mesh("wall.obj");
 
-    Shape shape1(&sphere1, &red);
-    Shape shape2(&sphere2, &blue);
-    Shape shape3(&sphere3, &white);
-    Shape shape4(&sphere4, &blue);
-    Shape shape5(&mesh, &glossy);
+    Sphere light_sphere(Vec3({.2f, .2f, 1.8f}), .15f);
     
-    /* sc.add_shape(&shape1); */
-    sc.add_shape(&shape2);
-    sc.add_shape(&shape3);
-    sc.add_shape(&shape4);
-    sc.add_shape(&shape5);
+    Sphere sphere(Vec3({-.5, -.9f, .2f}), .2f);
 
-    PointLight pl1(Vec3({-1, 1, 0}),
-                   RGBColor({1, 1, 1}),
-                   2.0f);
-    PointLight pl2(Vec3({-1, -10, 0}),
-                   RGBColor({1, 1, 0}),
-                   50.0f);
+    Shape teapot(&teapot_mesh, &glossy);
+    Shape red_sphere(&sphere, &red);
+    Shape box(&box_mesh, &white);
+    Shape wall(&wall_mesh, &yellow);
+    Shape light_shape(&light_sphere, &blue);
+    
+    sc.add_shape(&box);
+    sc.add_shape(&wall);
+    
+    sc.add_shape(&teapot);
+    sc.add_shape(&red_sphere);
+    
+    sc.add_shape(&light_shape);
 
-    AreaLight al1(&shape2);
-    AreaLight al2(&shape4);
-    sc.add_light(&al1);
-    sc.add_light(&al2);
+    AreaLight light(&light_shape);
+    sc.add_light(&light);
     
     const size_t bounces = 3;
     

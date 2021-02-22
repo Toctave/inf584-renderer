@@ -18,7 +18,6 @@ float random_01() {
         x = g_distribution(g_mt);
     }
     return x;
-    // return static_cast<float>(rand()) / RAND_MAX;
 }
 
 Vec2 sample_unit_square() {

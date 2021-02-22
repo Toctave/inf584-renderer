@@ -50,3 +50,8 @@ void AABB::include_point(const Vec3& p) {
         }
     }
 }
+
+void AABB::widen(float w) {
+    max_ += Vec3({w, w, w});
+    min_ -= Vec3({w, w, w});
+}

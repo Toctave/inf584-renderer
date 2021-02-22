@@ -24,6 +24,7 @@ BVHNode::BVHNode(const BVHNode* left, const BVHNode* right)
         box_ = left->box_;
         box_.include_point(right->box_.min());
         box_.include_point(right->box_.max());
+    box_.widen(1.0e-6f);
 }
 
 BVHNode::BVHNode(const std::vector<size_t>::iterator& indices_begin,
@@ -35,6 +36,7 @@ BVHNode::BVHNode(const std::vector<size_t>::iterator& indices_begin,
             box_.include_point(*mesh.triangle(idx).positions[i]);
         }
     }
+    box_.widen(1.0e-6f);
 }
 
 BVHNode build_bvh(std::vector<size_t>::iterator indices_begin,

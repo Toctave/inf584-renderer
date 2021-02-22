@@ -16,5 +16,7 @@ public:
     const Vec3& max() const;
 
     bool ray_intersect(const Ray& ray) const;
-    void include_point(const Vec3& p);    
+    void include_point(const Vec3& p);
+
+    void widen(float w);
 };

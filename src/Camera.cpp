@@ -6,7 +6,7 @@ Camera::Camera(Vec3 eye, Vec3 target, Vec3 up, float fovy, float ar)
     frame_[0] = cross(up, frame_[2]).normalized();
     frame_[1] = cross(frame_[2], frame_[0]);
 
-    depth_ = tan(fovy * .5f) * 2.0f;
+    depth_ = std::cos(fovy * .5f) / std::sin(fovy * .5f);
 }
 
 Ray Camera::get_ray(Vec2 sample) {
