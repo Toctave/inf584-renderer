@@ -54,6 +54,39 @@ void LightPath::print_subpaths(const std::string& base) const {
     }
 }
 
+RGBColor LightPath::radiance_channel(const std::string& channel) const {
+    if (channel.length() == 0) {
+        return RGBColor();
+    }
+
+    char first = channel[0];
+    std::string channel_tail = channel.substr(1);
+    if (first == '*') {
+        RGBColor r = emitted_;
+        for (size_t i = 0; i < tributaries_.size(); i++) {
+            RGBColor tr =
+                tributaries_[i]->radiance_channel(channel_tail)
+                + tributaries_[i]->radiance_channel(channel);
+            r += brdfs_[i] * angle_cos_[i] * tr / pdfs_[i];
+        }
+        return r;
+    }
+    
+    char my_type_letter = surface_type_letter(type_);
+
+    if (my_type_letter == first || first == '.') {
+        RGBColor r = emitted_;
+        for (size_t i = 0; i < tributaries_.size(); i++) {
+            r += brdfs_[i] * angle_cos_[i]
+                * tributaries_[i]->radiance_channel(channel_tail)
+                / pdfs_[i];
+        }
+        return r;
+    } else {
+        return RGBColor();
+    }
+}
+
 RGBColor LightPath::radiance() const {
     RGBColor r = emitted_;
 
@@ -68,3 +101,4 @@ RGBColor LightPath::radiance() const {
 void LightPath::set_emission(const RGBColor& emission) {
     emitted_ = emission;
 }
+

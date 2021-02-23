@@ -194,11 +194,11 @@ void render(RGBImage& output, const Options& options) {
                radians(90.0f),
                static_cast<float>(output.width()) / output.height());
 
-    LambertMaterial red(RGBColor(1, 0, 0));
+    LambertMaterial red(RGBColor(.8, 0, 0));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
-    LambertMaterial white(RGBColor::gray(1.0f));
+    LambertMaterial white(RGBColor::gray(.5f));
     LambertMaterial blue(RGBColor(.5f, .5f, 1.0f));
-    Emission emission_blue(30.0f * RGBColor(.5f, .5f, 1.0f));
+    Emission emission_blue(80.0f * RGBColor(.5f, .5f, 1.0f));
     MicrofacetMaterial glossy(.2f, 1.0f);
     
     TriangleMesh teapot_mesh("teapot.obj");
@@ -226,7 +226,7 @@ void render(RGBImage& output, const Options& options) {
     AreaLight light(&light_shape);
     sc.add_light(&light);
     
-    const size_t bounces = 0;
+    const size_t bounces = 10;
     
 #pragma omp parallel for schedule(static, 4)
     for (size_t row = 0; row < output.height(); row++) {

@@ -33,4 +33,17 @@ public:
     void print_subpaths(const std::string& base) const;
 
     void set_emission(const RGBColor& emission);
+    RGBColor radiance_channel(const std::string& channel) const;
+};
+
+class RadianceTrie {
+private:
+    SurfaceType node_type_;
+    RadianceTrie* children_[SurfaceType::TYPE_COUNT];
+    RGBColor radiance;
+
+public:
+    RadianceTrie(SurfaceType type);
+
+    RGBColor operator[](const std::string& s);
 };
