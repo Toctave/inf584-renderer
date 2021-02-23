@@ -10,7 +10,9 @@ class Material;
 struct Intersect {
     float t;
 
-    const Ray* ray;
+    Vec3 point;
+    Vec3 wo;
+    
     const Shape* shape;
     const Material* material;
     
@@ -19,7 +21,6 @@ struct Intersect {
 
     Intersect()
         : t(INFTY),
-          ray(nullptr),
           shape(nullptr),
           material(nullptr) {
     }

@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <cmath>
+#include <cassert>
 
 // template<typename T, size_t N>
 // bool validate(const Vec<T, N>& lhs) {
@@ -92,9 +93,7 @@ const Vec<T, N>& Vec<T, N>::operator*=(const T& other) {
 template<typename T, size_t N>
 const Vec<T, N>& Vec<T, N>::operator/=(const T& other) {
     for (size_t i = 0; i < N; i++) {
-        if (other == 0 && co_[i] == 0) {
-            throw std::invalid_argument("Divide zero by zero\n");
-        }
+        assert(!(other == 0 && co_[i] == 0));
         co_[i] /= other;
     }
     return *this;

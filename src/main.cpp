@@ -77,9 +77,7 @@ RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
 RGBColor explicit_shade(Intersect& itx,
                         const Scene& scene,
                         bool keep_lights) {
-    Vec3 hit_point = itx.ray->at(itx.t);
-    Vec3 hover_point = hit_point + EPSILON * itx.normal;
-    Vec3 wo = -itx.ray->d;
+    Vec3 hover_point = itx.point + EPSILON * itx.normal;
 
     RGBColor result;
     for (const Light* light : scene.lights()) {
@@ -97,11 +95,11 @@ RGBColor explicit_shade(Intersect& itx,
 
         RGBColor f = itx.material->brdf(itx,
                                         wi,
-                                        wo);
+                                        itx.wo);
         result += u * f * light_sample.intensity / light_sample.pdf;
     }
     if (keep_lights) {
-        RGBColor e = itx.material->emit(hit_point, wo);
+        RGBColor e = itx.material->emit(itx.point, itx.wo);
         result += e;
     }
     
@@ -177,7 +175,8 @@ void render(RGBImage& output, const Options& options) {
     LambertMaterial red(RGBColor(1, 0, 0));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
     LambertMaterial white(RGBColor::gray(1.0f));
-    Emission blue(30.0f * RGBColor(.5f, .5f, 1.0f));
+    LambertMaterial blue(RGBColor(.5f, .5f, 1.0f));
+    Emission emission_blue(30.0f * RGBColor(.5f, .5f, 1.0f));
     MicrofacetMaterial glossy(.2f, 1.0f);
     
     TriangleMesh teapot_mesh("teapot.obj");
@@ -188,11 +187,11 @@ void render(RGBImage& output, const Options& options) {
     
     Sphere sphere(Vec3({-.5, -.9f, .2f}), .2f);
 
-    Shape teapot(&teapot_mesh, &glossy);
+    Shape teapot(&teapot_mesh, &blue);
     Shape red_sphere(&sphere, &red);
     Shape box(&box_mesh, &white);
     Shape wall(&wall_mesh, &yellow);
-    Shape light_shape(&light_sphere, &blue);
+    Shape light_shape(&light_sphere, &emission_blue);
     
     sc.add_shape(&box);
     sc.add_shape(&wall);

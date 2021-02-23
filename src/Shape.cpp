@@ -20,7 +20,8 @@ bool Shape::ray_intersect(const Ray& ray, Intersect& intersect) const {
     bool result = primitive_->ray_intersect(ray, intersect);
 
     if (result) {
-        intersect.ray = &ray;
+        intersect.point = ray.at(intersect.t);
+        intersect.wo = -ray.d;
         intersect.shape = this;
         intersect.material = material_;
     }
