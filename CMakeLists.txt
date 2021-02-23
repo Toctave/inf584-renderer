@@ -22,6 +22,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/AABB.cpp
   src/BVH.cpp
   src/Microfacet.cpp
+  src/LightPath.cpp
   )
 
 
