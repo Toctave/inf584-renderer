@@ -13,4 +13,6 @@ private:
 public:
     Camera(Vec3 eye, Vec3 target, Vec3 up, float fovy, float ar);
     Ray get_ray(Vec2 sample);
+
+    const Vec3& position() const;
 };

@@ -17,3 +17,8 @@ Ray Camera::get_ray(Vec2 sample) {
     return Ray(position_,
                d);
 }
+
+const Vec3& Camera::position() const {
+    return position_;
+}
+    

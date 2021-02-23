@@ -19,6 +19,7 @@
 #include "Sampling.hpp"
 #include "TriangleMesh.hpp"
 #include "BVH.hpp"
+#include "LightPath.hpp"
 
 struct Options {
     size_t width;
@@ -74,12 +75,12 @@ RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
     return lerp(c1, c2, ratio);
 }
 
-RGBColor explicit_shade(Intersect& itx,
-                        const Scene& scene,
-                        bool keep_lights) {
+void explicit_shade(LightPath* path,
+                    Intersect& itx,
+                    const Scene& scene,
+                    bool keep_lights) {
     Vec3 hover_point = itx.point + EPSILON * itx.normal;
 
-    RGBColor result;
     for (const Light* light : scene.lights()) {
         LightSample light_sample = light->sample(hover_point);
         Vec3 wi = light_sample.shadow_ray.d.normalized();
@@ -96,65 +97,86 @@ RGBColor explicit_shade(Intersect& itx,
         RGBColor f = itx.material->brdf(itx,
                                         wi,
                                         itx.wo);
-        result += u * f * light_sample.intensity / light_sample.pdf;
+        LightPath* emission_path =
+            new LightPath(light_sample.intensity,
+                          light_sample.shadow_ray.at(1.0f));
+        path->add_tributary(emission_path,
+                            light_sample.pdf,
+                            f,
+                            u);
     }
     if (keep_lights) {
         RGBColor e = itx.material->emit(itx.point, itx.wo);
-        result += e;
+        path->set_emission(e);
     }
-    
-    return result;
 }
 
-RGBColor trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0, bool keep_lights = true) {
+bool orthonormal_basis(const Vec3& x, const Vec3& y, const Vec3& z) {
+    return (fabs(x.norm() - 1.0f) < EPSILON)
+        && (fabs(y.norm() - 1.0f) < EPSILON)
+        && (fabs(z.norm() - 1.0f) < EPSILON)
+        && (fabs(dot(x, y)) < EPSILON)
+        && (fabs(dot(y, z)) < EPSILON)
+        && (fabs(dot(x, z)) < EPSILON);
+}
+
+LightPath* trace_ray(const Scene& scene,
+                     Ray& ray,
+                     size_t max_bounces = 0,
+                     bool keep_lights = true) {
     Intersect itx;
     if (scene.ray_intersect(ray, itx)) {
-        if (max_bounces == 0) {
-            return explicit_shade(itx, scene, keep_lights);
-        } else {
+        LightPath* path = new LightPath(itx.material->surface_type(),
+                                        itx.point);
+        explicit_shade(path, itx, scene, keep_lights);
+        
+        if (max_bounces > 0) {
             Vec3 wo = -ray.d;
-            Vec3 local_base_y = cross(wo, itx.normal);
-            if (local_base_y.norm() < EPSILON) {
-                local_base_y = cross(wo + Vec3({1, 0, 0}),
+            Vec3 local_basis_y = cross(wo, itx.normal);
+            if (local_basis_y.norm() < EPSILON) {
+                local_basis_y = cross(wo + Vec3({1, 0, 0}),
                                      itx.normal);
             }
-            local_base_y.normalize();
-            Vec3 local_base_x = cross(itx.normal, local_base_y);
+            local_basis_y.normalize();
+            Vec3 local_basis_x = cross(itx.normal, local_basis_y);
 
-            assert(fabs(local_base_x.norm() - 1.0f) < EPSILON);
-            assert(fabs(local_base_y.norm() - 1.0f) < EPSILON);
-            assert(fabs(dot(local_base_x, local_base_y)) < EPSILON);
-            assert(fabs(dot(local_base_x, itx.normal)) < EPSILON);
-            assert(fabs(dot(local_base_y, itx.normal)) < EPSILON);
+            assert(orthonormal_basis(local_basis_x, local_basis_y, itx.normal));
 
             float pdf;
             Vec3 wi_sample = sample_hemisphere_cosine_weighted(&pdf);
 
             if (pdf == 0.0f) {
                 // skip impossible samples
-                return explicit_shade(itx, scene, keep_lights);
+                return path;
             }
             
-            Vec3 wi = wi_sample[0] * local_base_x
-                + wi_sample[1] * local_base_y
+            Vec3 wi = wi_sample[0] * local_basis_x
+                + wi_sample[1] * local_basis_y
                 + wi_sample[2] * itx.normal;
 
             Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
                        wi);
-            RGBColor incoming_radiance =
+            
+            LightPath* bounce_path =
                 trace_ray(scene, bounce, max_bounces - 1, false);
+
+            if (!bounce_path) {
+                return path;
+            }
             
             RGBColor f = itx.material->brdf(itx,
                                             wi,
                                             wo);
             float u = wi_sample[2]; // cosine factor
-            RGBColor c = u * f * incoming_radiance;
 
-            return explicit_shade(itx, scene, keep_lights) + c / pdf;
+            path->add_tributary(bounce_path,
+                                pdf,
+                                f,
+                                u);
         }
-    } else {
-        return RGBColor();
+        return path;
     }
+    return nullptr;
 }
 
 float radians(float deg) {
@@ -187,7 +209,7 @@ void render(RGBImage& output, const Options& options) {
     
     Sphere sphere(Vec3({-.5, -.9f, .2f}), .2f);
 
-    Shape teapot(&teapot_mesh, &blue);
+    Shape teapot(&teapot_mesh, &glossy);
     Shape red_sphere(&sphere, &red);
     Shape box(&box_mesh, &white);
     Shape wall(&wall_mesh, &yellow);
@@ -204,7 +226,7 @@ void render(RGBImage& output, const Options& options) {
     AreaLight light(&light_shape);
     sc.add_light(&light);
     
-    const size_t bounces = 3;
+    const size_t bounces = 0;
     
 #pragma omp parallel for schedule(static, 4)
     for (size_t row = 0; row < output.height(); row++) {
@@ -222,8 +244,16 @@ void render(RGBImage& output, const Options& options) {
             
                 Ray camera_ray = cam.get_ray(screen_sample);
 
-                RGBColor radiance = trace_ray(sc, camera_ray, bounces);
-                output(col, row) += radiance;
+                LightPath* path =
+                    trace_ray(sc, camera_ray, bounces);
+                
+                if (path) {
+                    RGBColor radiance = path->radiance();
+                
+                    output(col, row) += radiance;
+
+                    delete path;
+                }
             }
 
             output(col, row) /= static_cast<float>(options.sample_count);

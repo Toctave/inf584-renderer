@@ -43,3 +43,7 @@ RGBColor MicrofacetMaterial::brdf(const Intersect& itx,
 
     return RGBColor(brdf_val);
 }
+
+SurfaceType MicrofacetMaterial::surface_type() const {
+    return SurfaceType::SPECULAR;
+}

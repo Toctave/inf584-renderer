@@ -4,6 +4,8 @@
 #include "Vec.hpp"
 #include "Color.hpp"
 
+enum class SurfaceType { EYE, DIFFUSE, SPECULAR, LIGHT };
+
 class Material {
 public:
     virtual RGBColor brdf(const Intersect& itx,
@@ -15,6 +17,8 @@ public:
                           const Vec3& wo) const {
         return RGBColor();
     }
+
+    virtual SurfaceType surface_type() const = 0;
 };
 
 class LambertMaterial : public Material {
@@ -26,6 +30,7 @@ public:
     virtual RGBColor brdf(const Intersect& itx,
                           const Vec3& wi,
                           const Vec3& wo) const;
+    virtual SurfaceType surface_type() const;
 };
 
 class MicrofacetMaterial : public Material {
@@ -41,6 +46,7 @@ public:
     virtual RGBColor brdf(const Intersect& itx,
                           const Vec3& wi,
                           const Vec3& wo) const;
+    virtual SurfaceType surface_type() const;
 };
 
 class Emission : public Material {
@@ -51,4 +57,5 @@ public:
     Emission(const RGBColor& irradiance);
     virtual RGBColor emit(const Vec3& itx,
                           const Vec3& wo) const override;
+    virtual SurfaceType surface_type() const;
 };
