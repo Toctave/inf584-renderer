@@ -52,11 +52,9 @@ Options parse_options(int argc, char** argv) {
         
         if (option == "-s") {
             options.sample_count = parse_size_t(value);
-        }
-        else if (option == "-w") {
+        } else if (option == "-w") {
             options.width = parse_size_t(value);
-        }
-        else if (option == "-h") {
+        } else if (option == "-h") {
             options.height = parse_size_t(value);
         } else {
             print_usage_string();
@@ -273,7 +271,7 @@ int main(int argc, char** argv) {
     signal(SIGFPE, fpe_handler);
     feenableexcept(FE_INVALID);
     
-    std::ofstream output_file("out.ppm");
-    img.output_ppm(output_file);
+    std::ofstream output_file("out.png");
+    img.output_png(output_file);
     return 0;
 }
