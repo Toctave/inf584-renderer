@@ -175,7 +175,7 @@ LightPath* trace_ray(const Scene& scene,
         return path;
     }
     return nullptr;
-}
+} 
 
 float radians(float deg) {
     return M_PI * deg / 180.0f;
@@ -186,35 +186,42 @@ void render(RGBImage& output, const Options& options) {
 
     initialize_random_system();
 
-    Camera cam(Vec3({0.0f, -3.0f, 1.0f}),
+    float fov = radians(45.0f);
+    float half_fov = .5f * fov;
+    Camera cam(Vec3({0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f}),
                Vec3({0, 0, 1}),
                Vec3({0, 0, 1}),
-               radians(90.0f),
+               fov,
                static_cast<float>(output.width()) / output.height());
 
-    LambertMaterial red(RGBColor(.8, 0, 0));
+    LambertMaterial red(RGBColor(.5f, 0, 0));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
     LambertMaterial white(RGBColor::gray(.5f));
-    LambertMaterial blue(RGBColor(.5f, .5f, 1.0f));
-    Emission emission_blue(80.0f * RGBColor(.5f, .5f, 1.0f));
+    LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
+    
     MicrofacetMaterial glossy(.2f, 1.0f);
+    
+    Emission emission(80.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
     TriangleMesh teapot_mesh("teapot.obj");
     TriangleMesh box_mesh("box.obj");
-    TriangleMesh wall_mesh("wall.obj");
+    TriangleMesh left_wall_mesh("left_wall.obj");
+    TriangleMesh right_wall_mesh("right_wall.obj");
 
-    Sphere light_sphere(Vec3({.2f, .2f, 1.8f}), .15f);
+    Sphere light_sphere(Vec3({.0f, .0f, 1.8f}), .15f);
     
-    Sphere sphere(Vec3({-.5, -.9f, .2f}), .2f);
+    Sphere sphere(Vec3({.5f, .5f, .3f}), .3f);
 
     Shape teapot(&teapot_mesh, &glossy);
     Shape red_sphere(&sphere, &red);
     Shape box(&box_mesh, &white);
-    Shape wall(&wall_mesh, &yellow);
-    Shape light_shape(&light_sphere, &emission_blue);
+    Shape left_wall(&left_wall_mesh, &yellow);
+    Shape right_wall(&right_wall_mesh, &blue);
+    Shape light_shape(&light_sphere, &emission);
     
     sc.add_shape(&box);
-    sc.add_shape(&wall);
+    sc.add_shape(&left_wall);
+    sc.add_shape(&right_wall);
     
     sc.add_shape(&teapot);
     sc.add_shape(&red_sphere);
@@ -246,7 +253,7 @@ void render(RGBImage& output, const Options& options) {
                     trace_ray(sc, camera_ray, bounces);
                 
                 if (path) {
-                    RGBColor radiance = path->radiance();
+                    RGBColor radiance = path->radiance_channel("L*E");
                 
                     output(col, row) += radiance;
 

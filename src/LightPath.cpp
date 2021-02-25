@@ -54,19 +54,18 @@ void LightPath::print_subpaths(const std::string& base) const {
     }
 }
 
-RGBColor LightPath::radiance_channel(const std::string& channel) const {
-    if (channel.length() == 0) {
+RGBColor LightPath::radiance_channel(const std::string& channel, int offset) const {
+    if (offset < 0) {
         return RGBColor();
     }
-
-    char first = channel[0];
-    std::string channel_tail = channel.substr(1);
+    
+    char first = channel[offset];
     if (first == '*') {
         RGBColor r = emitted_;
         for (size_t i = 0; i < tributaries_.size(); i++) {
             RGBColor tr =
-                tributaries_[i]->radiance_channel(channel_tail)
-                + tributaries_[i]->radiance_channel(channel);
+                tributaries_[i]->radiance_channel(channel, offset - 1)
+                + tributaries_[i]->radiance_channel(channel, offset);
             r += brdfs_[i] * angle_cos_[i] * tr / pdfs_[i];
         }
         return r;
@@ -78,13 +77,20 @@ RGBColor LightPath::radiance_channel(const std::string& channel) const {
         RGBColor r = emitted_;
         for (size_t i = 0; i < tributaries_.size(); i++) {
             r += brdfs_[i] * angle_cos_[i]
-                * tributaries_[i]->radiance_channel(channel_tail)
+                * tributaries_[i]->radiance_channel(channel, offset - 1)
                 / pdfs_[i];
         }
         return r;
     } else {
         return RGBColor();
     }
+}
+
+RGBColor LightPath::radiance_channel(const std::string& channel) const {
+    int length = channel.length();
+    assert(channel[length - 1] == 'E');
+    
+    return radiance_channel(channel, length - 2);
 }
 
 RGBColor LightPath::radiance() const {

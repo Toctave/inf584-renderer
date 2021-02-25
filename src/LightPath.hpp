@@ -18,6 +18,7 @@ private:
     std::vector<float> pdfs_;
     std::vector<RGBColor> brdfs_;
     std::vector<float> angle_cos_;
+    RGBColor radiance_channel(const std::string& channel, int offset) const;
 
 public:
     LightPath(const Vec3& eye); // eye

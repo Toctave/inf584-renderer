@@ -11,6 +11,7 @@ private:
 
 public:
     RGBImage(size_t width, size_t height);
+    RGBImage(size_t width, size_t height, const RGBColor& background);
 
     const RGBColor& operator()(size_t i, size_t j) const;
     RGBColor& operator()(size_t i, size_t j);

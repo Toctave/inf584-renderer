@@ -9,6 +9,10 @@ RGBImage::RGBImage(size_t width, size_t height)
     : width_(width), height_(height), pixels_(width_ * height_) {
 }
 
+RGBImage::RGBImage(size_t width, size_t height, const RGBColor& color)
+    : width_(width), height_(height), pixels_(width_ * height_, color) {
+}
+
 const RGBColor& RGBImage::operator()(size_t i, size_t j) const {
     if (i >= width_ || j >= height_) {
         throw std::out_of_range("Out of range pixel access");
