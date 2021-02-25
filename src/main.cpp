@@ -7,6 +7,8 @@
 #include <csignal>
 #include <fenv.h>
 
+#include <SDL2/SDL.h>
+
 #include "Vec.hpp"
 #include "Color.hpp"
 #include "Image.hpp"
@@ -25,6 +27,8 @@ struct Options {
     size_t width;
     size_t height;
     size_t sample_count;
+
+    std::vector<std::string> light_paths;
 };
 
 size_t parse_size_t(const std::string& s) {
@@ -35,31 +39,38 @@ size_t parse_size_t(const std::string& s) {
 }
 
 void print_usage_string() {
-    std::cerr << "Usage : ./renderer -w width -h height -s sample_count\n";
+    std::cerr << "Usage : ./renderer -w width -h height -s sample_count [light paths...]\n";
 }
 
 Options parse_options(int argc, char** argv) {
-    if ((argc - 1) % 2 != 0) {
-        print_usage_string();
-        exit(1);
-    }
-    
-    Options options{64, 64, 32};
+    Options options;
+    options.width = 64;
+    options.height = 64;
+    options.sample_count = 10;
 
-    for (int i = 1; i < argc; i += 2) {
+    int i = 1;
+    for (i = 1; i < argc; i += 2) {
         std::string option(argv[i]);
-        std::string value(argv[i + 1]);
         
         if (option == "-s") {
-            options.sample_count = parse_size_t(value);
+            options.sample_count = parse_size_t(argv[i+1]);
         } else if (option == "-w") {
-            options.width = parse_size_t(value);
+            options.width = parse_size_t(argv[i+1]);
         } else if (option == "-h") {
-            options.height = parse_size_t(value);
+            options.height = parse_size_t(argv[i+1]);
         } else {
-            print_usage_string();
-            exit(1);
-        }
+	    break;
+	}
+    }
+
+    while (i < argc) {
+	std::string light_path(argv[i]);
+	options.light_paths.push_back(light_path);
+	i++;
+    }
+
+    if (options.light_paths.size() == 0) {
+	options.light_paths.push_back("L*E");
     }
 
     return options;
@@ -181,7 +192,19 @@ float radians(float deg) {
     return M_PI * deg / 180.0f;
 }
 
-void render(RGBImage& output, const Options& options) {
+void draw_image(const RGBImage& image, SDL_Surface* surface, size_t samples) {
+    float scale = 1.0f / samples;
+    for (size_t row = 0; row < image.height(); row++) {
+	for (size_t col = 0; col < image.width(); col++) {
+	    RGBColor color = scale * image(col, row);
+	    RGB8 pixel8 = color.to_8bit();
+	    uint32_t* surface_pixel = ((uint32_t*)surface->pixels) + row * image.width() + col;
+	    *surface_pixel = SDL_MapRGB(surface->format, pixel8.r, pixel8.g, pixel8.b);
+	}
+    }
+}
+
+void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Options& options) {
     Scene sc;
 
     initialize_random_system();
@@ -192,7 +215,7 @@ void render(RGBImage& output, const Options& options) {
                Vec3({0, 0, 1}),
                Vec3({0, 0, 1}),
                fov,
-               static_cast<float>(output.width()) / output.height());
+               static_cast<float>(options.width) / options.height);
 
     LambertMaterial red(RGBColor(.5f, 0, 0));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
@@ -201,7 +224,7 @@ void render(RGBImage& output, const Options& options) {
     
     MicrofacetMaterial glossy(.2f, 1.0f);
     
-    Emission emission(80.0f * RGBColor(1.0f, 1.0f, 1.0f));
+    Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
     TriangleMesh teapot_mesh("teapot.obj");
     TriangleMesh box_mesh("box.obj");
@@ -232,19 +255,19 @@ void render(RGBImage& output, const Options& options) {
     sc.add_light(&light);
     
     const size_t bounces = 10;
-    
+    size_t samples_taken = 0;
+    bool need_quit = false;
+
+    while (samples_taken < options.sample_count && !need_quit) {
+	std::cout << "sample " << samples_taken + 1 << "\n";
 #pragma omp parallel for schedule(static, 4)
-    for (size_t row = 0; row < output.height(); row++) {
-        std::cout << "row " << row << "\n";
-        for (size_t col = 0; col < output.width(); col++) {
-            for (size_t sample_i = 0;
-                 sample_i < options.sample_count;
-                 sample_i++) {
+	for (size_t row = 0; row < options.height; row++) {
+	    for (size_t col = 0; col < options.width; col++) {
                 Vec2 screen_offset =
                     sample_unit_square() * .5f - Vec2({.5f, .5f});
                 Vec2 screen_sample({
-                        2.0f * (static_cast<float>(col) + screen_offset[0]) / output.width() - 1.0f,
-                        1.0f - 2.0f * (static_cast<float>(row) + screen_offset[1]) / output.height()
+                        2.0f * (static_cast<float>(col) + screen_offset[0]) / options.width - 1.0f,
+                        1.0f - 2.0f * (static_cast<float>(row) + screen_offset[1]) / options.height
                     });
             
                 Ray camera_ray = cam.get_ray(screen_sample);
@@ -253,16 +276,36 @@ void render(RGBImage& output, const Options& options) {
                     trace_ray(sc, camera_ray, bounces);
                 
                 if (path) {
-                    RGBColor radiance = path->radiance_channel("L*E");
+		    for (size_t i = 0; i < options.light_paths.size(); i++) {
+			RGBColor radiance = path->radiance_channel(options.light_paths[i]);
+			
+			output_images[i](col, row) += radiance;
+		    }
                 
-                    output(col, row) += radiance;
-
                     delete path;
                 }
             }
 
-            output(col, row) /= static_cast<float>(options.sample_count);
         }
+	samples_taken++;
+	
+	draw_image(output_images[0], SDL_GetWindowSurface(window), samples_taken + 1);
+	
+	SDL_UpdateWindowSurface(window);
+	SDL_Event evt;
+	while (SDL_PollEvent(&evt)) {
+	    if (evt.type == SDL_QUIT) {
+		need_quit = true;
+	    }
+	}
+    }
+    
+    for (size_t i = 0; i < options.light_paths.size(); i++) {
+	for (size_t row = 0; row < options.height; row++) {
+	    for (size_t col = 0; col < options.width; col++) {
+		output_images[i](col, row) /= static_cast<float>(samples_taken);
+	    }
+	}
     }
 }
 
@@ -271,14 +314,26 @@ void fpe_handler(int signum) {
 
 int main(int argc, char** argv) {
     Options options = parse_options(argc, argv);
+    std::vector<RGBImage> output_images;
+    for (size_t i = 0; i < options.light_paths.size(); i++) {
+	output_images.push_back(RGBImage(options.width, options.height));
+    }
     
-    RGBImage img(options.width, options.height);
-    render(img, options);
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Window* window =
+	SDL_CreateWindow("renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, options.width, options.height, 0);
+
+    render(window, output_images, options);
 
     signal(SIGFPE, fpe_handler);
     feenableexcept(FE_INVALID);
-    
-    std::ofstream output_file("out.png");
-    img.output_png(output_file);
+
+    for (size_t i = 0; i < options.light_paths.size(); i++) {
+	std::ofstream output_file("out" + options.light_paths[i] + ".png");
+	output_images[i].output_png(output_file);
+    }
+
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     return 0;
 }
