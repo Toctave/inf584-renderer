@@ -10,6 +10,7 @@
 #include <SDL2/SDL.h>
 
 #include "Vec.hpp"
+#include "Matrix.hpp"
 #include "Color.hpp"
 #include "Image.hpp"
 #include "Ray.hpp"
@@ -76,14 +77,6 @@ Options parse_options(int argc, char** argv) {
     return options;
 }
 
-RGBColor background_color(size_t row, size_t col, const RGBImage& img) {
-    static const RGBColor c1({.6, .6, .8});
-    static const RGBColor c2({.8, .8, .5});
-    
-    float ratio = static_cast<float>(row) / img.width();
-    return lerp(c1, c2, ratio);
-}
-
 void explicit_shade(LightPath* path,
                     Intersect& itx,
                     const Scene& scene,
@@ -120,7 +113,7 @@ void explicit_shade(LightPath* path,
     }
 }
 
-bool orthonormal_basis(const Vec3& x, const Vec3& y, const Vec3& z) {
+bool is_orthonormal_basis(const Vec3& x, const Vec3& y, const Vec3& z) {
     return (fabs(x.norm() - 1.0f) < EPSILON)
         && (fabs(y.norm() - 1.0f) < EPSILON)
         && (fabs(z.norm() - 1.0f) < EPSILON)
@@ -143,13 +136,13 @@ LightPath* trace_ray(const Scene& scene,
             Vec3 wo = -ray.d;
             Vec3 local_basis_y = cross(wo, itx.normal);
             if (local_basis_y.norm() < EPSILON) {
-                local_basis_y = cross(wo + Vec3({1, 0, 0}),
+                local_basis_y = cross(wo + Vec3(1.0f, 0.0f, 0.0f),
                                      itx.normal);
             }
             local_basis_y.normalize();
             Vec3 local_basis_x = cross(itx.normal, local_basis_y);
 
-            assert(orthonormal_basis(local_basis_x, local_basis_y, itx.normal));
+            assert(is_orthonormal_basis(local_basis_x, local_basis_y, itx.normal));
 
             float pdf;
             Vec3 wi_sample = sample_hemisphere_cosine_weighted(&pdf);
@@ -196,7 +189,7 @@ void draw_image(const RGBImage& image, SDL_Surface* surface, size_t samples) {
     float scale = 1.0f / samples;
     for (size_t row = 0; row < image.height(); row++) {
 	for (size_t col = 0; col < image.width(); col++) {
-	    RGBColor color = scale * image(col, row);
+	    RGBColor color = scale * image(row, col);
 	    RGB8 pixel8 = color.to_8bit();
 	    uint32_t* surface_pixel = ((uint32_t*)surface->pixels) + row * image.width() + col;
 	    *surface_pixel = SDL_MapRGB(surface->format, pixel8.r, pixel8.g, pixel8.b);
@@ -211,9 +204,9 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
 
     float fov = radians(45.0f);
     float half_fov = .5f * fov;
-    Camera cam(Vec3({0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f}),
-               Vec3({0, 0, 1}),
-               Vec3({0, 0, 1}),
+    Camera cam(Vec3(0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f),
+               Vec3(0.0f, 0.0f, 1.0f),
+               Vec3(0.0f, 0.0f, 1.0f),
                fov,
                static_cast<float>(options.width) / options.height);
 
@@ -241,6 +234,15 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     Shape left_wall(&left_wall_mesh, &yellow);
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_sphere, &emission);
+
+    teapot.set_transform(
+	Matrix4(
+	    1.0f, 0.0f, 0.0f, 0.0f,
+	    0.0f, 0.0f, -.3f, 0.0f,
+	    0.0f, .6f, 0.0f, 1.0f,
+	    0.0f, 0.0f, 0.0f, 1.0f
+	)
+    );
     
     sc.add_shape(&box);
     sc.add_shape(&left_wall);
@@ -279,13 +281,12 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
 		    for (size_t i = 0; i < options.light_paths.size(); i++) {
 			RGBColor radiance = path->radiance_channel(options.light_paths[i]);
 			
-			output_images[i](col, row) += radiance;
+			output_images[i](row, col) += radiance;
 		    }
                 
                     delete path;
                 }
             }
-
         }
 	samples_taken++;
 	
@@ -303,7 +304,7 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     for (size_t i = 0; i < options.light_paths.size(); i++) {
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
-		output_images[i](col, row) /= static_cast<float>(samples_taken);
+		output_images[i](row, col) /= static_cast<float>(samples_taken);
 	    }
 	}
     }

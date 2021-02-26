@@ -13,18 +13,18 @@ RGBImage::RGBImage(size_t width, size_t height, const RGBColor& color)
     : width_(width), height_(height), pixels_(width_ * height_, color) {
 }
 
-const RGBColor& RGBImage::operator()(size_t i, size_t j) const {
-    if (i >= width_ || j >= height_) {
+const RGBColor& RGBImage::operator()(size_t row, size_t col) const {
+    if (row >= height_ || col >= width_) {
         throw std::out_of_range("Out of range pixel access");
     }
-    return pixels_[j * width_ + i];
+    return pixels_[row * width_ + col];
 }
 
-RGBColor& RGBImage::operator()(size_t i, size_t j) {
-    if (i >= width_ || j >= height_) {
+RGBColor& RGBImage::operator()(size_t row, size_t col) {
+    if (row >= height_ || col >= width_) {
         throw std::out_of_range("Out of range pixel access");
     }
-    return pixels_[j * width_ + i];
+    return pixels_[row * width_ + col];
 }
 
 void RGBImage::output_ppm(std::ostream& out) const {

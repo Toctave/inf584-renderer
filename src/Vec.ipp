@@ -15,16 +15,23 @@
 // }
 
 template<typename T, size_t N>
-Vec<T, N>::Vec(const T(&args)[N]) {
-    for (size_t i = 0; i < N; i++) {
-        co_[i] = args[i];
-    }
+template<typename... Args, typename std::enable_if<sizeof...(Args) == N, int>::type>
+Vec<T, N>::Vec(Args&&... args)
+    : co_{args...} {
+    static_assert(sizeof...(Args) == N, "You must provide N arguments.");
 }
 
 template<typename T, size_t N>
 Vec<T, N>::Vec(const T& val) {
     for (size_t i = 0; i < N; i++) {
         co_[i] = val;
+    }
+}
+
+template<typename T, size_t N>
+Vec<T, N>::Vec(const T (&args)[N]) {
+    for (size_t i = 0; i < N; i++) {
+        co_[i] = args[i];
     }
 }
 

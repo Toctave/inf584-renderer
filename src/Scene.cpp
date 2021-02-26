@@ -35,3 +35,4 @@ void Scene::add_light(const Light* light) {
 const std::vector<const Light*>& Scene::lights() const {
     return lights_;
 }
+

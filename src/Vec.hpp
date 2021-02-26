@@ -3,13 +3,28 @@
 #include <cstddef>
 #include <iostream>
 
+template<typename T, size_t Rows, size_t Cols>
+class Matrix;
+
+template<typename T, size_t N>
+class Vec;
+
+template<typename T, size_t N>
+Matrix<T, 1, N> row_matrix(const Vec<T, N>& v);
+
+template<typename T, size_t N>
+Matrix<T, N, 1> column_matrix(const Vec<T, N>& v);
+
 template<typename T, size_t N>
 class Vec {
 private:
     T co_[N];
 
 public:
-    Vec(const T(&args)[N]);
+    template<typename... Args, typename std::enable_if<sizeof...(Args) == N, int>::type = 0>
+    Vec(Args&&... args);
+
+    Vec(const T (&args)[N]);
     Vec(const T& val);
     Vec();
     Vec(const Vec<T, N>& other);
@@ -28,6 +43,9 @@ public:
     T norm() const;
     void normalize();
     Vec<T, N> normalized() const;
+
+    friend Matrix<T, 1, N> row_matrix<>(const Vec<T, N>& v);
+    friend Matrix<T, N, 1> column_matrix<>(const Vec<T, N>& v);
 };
 
 template<typename T, size_t N>
