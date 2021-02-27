@@ -215,6 +215,27 @@ double now() {
     return diff.count();
 }
 
+Vec2 get_screen_sample(size_t row, size_t col, size_t width, size_t height, size_t sample_idx) {
+    static const size_t grid_size = 4;
+    static const float inv_grid_cell_width = 1.0f / grid_size;
+
+    size_t i = sample_idx % (grid_size * grid_size);
+    size_t gx = i % grid_size;
+    size_t gy = i / grid_size;
+    
+    Vec2 random_offset = sample_unit_square();
+
+    Vec2 jittered_offset(
+	(gx + random_offset[0]) * inv_grid_cell_width,
+	(gy + random_offset[1]) * inv_grid_cell_width
+    );
+    
+    return Vec2(
+	2.0f * (static_cast<float>(col) + jittered_offset[0]) / width - 1.0f,
+	1.0f - 2.0f * (static_cast<float>(row) + jittered_offset[1]) / height
+    );
+}
+
 void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Options& options) {
     Scene sc;
 
@@ -277,13 +298,7 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
 #pragma omp parallel for schedule(static, 4)
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
-                Vec2 screen_offset =
-                    sample_unit_square() * .5f - Vec2({.5f, .5f});
-                Vec2 screen_sample({
-                        2.0f * (static_cast<float>(col) + screen_offset[0]) / options.width - 1.0f,
-                        1.0f - 2.0f * (static_cast<float>(row) + screen_offset[1]) / options.height
-                    });
-            
+		Vec2 screen_sample = get_screen_sample(row, col, options.width, options.height, samples_taken);
                 Ray camera_ray = cam.get_ray(screen_sample);
 
                 LightPath* path =
