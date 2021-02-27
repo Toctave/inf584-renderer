@@ -258,29 +258,30 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     
     Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
-    TriangleMesh teapot_mesh("teapot.obj");
+    // TriangleMesh teapot_mesh("teapot.obj");
     TriangleMesh box_mesh("box.obj");
     TriangleMesh left_wall_mesh("left_wall.obj");
     TriangleMesh right_wall_mesh("right_wall.obj");
 
     Sphere light_sphere(Vec3({.0f, .0f, 1.8f}), .15f);
+    TriangleMesh light_mesh("light.obj");
     
     Sphere sphere(Vec3({.5f, .5f, .3f}), .3f);
 
-    Shape teapot(&teapot_mesh, &glossy);
-    Shape red_sphere(&sphere, &red);
+    // Shape teapot(&teapot_mesh, &glossy);
+    Shape red_sphere(&sphere, &glossy);
     Shape box(&box_mesh, &white);
     Shape left_wall(&left_wall_mesh, &yellow);
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_sphere, &emission);
 
-    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)));
+    // teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)));
 
     sc.add_shape(&box);
     sc.add_shape(&left_wall);
     sc.add_shape(&right_wall);
     
-    sc.add_shape(&teapot);
+    // sc.add_shape(&teapot);
     sc.add_shape(&red_sphere);
     
     sc.add_shape(&light_shape);

@@ -1,5 +1,6 @@
 #include "TriangleMesh.hpp"
 #include "BVH.hpp"
+#include "Sampling.hpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.hpp"
@@ -60,6 +61,23 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
         return true;
     } else {
         return false;
+    }
+}
+
+void TriangleMesh::calculate_areas() {
+    triangle_areas_.resize(triangle_count());
+    triangle_areas_cumsum_.resize(triangle_count());
+    total_area_ = 0.0f;
+
+    for (size_t i = 0; i < triangle_count(); i++) {
+	Triangle tri = triangle(i);
+	Vec3 e1 = *(tri.positions[1]) - *(tri.positions[0]);
+	Vec3 e2 = *(tri.positions[2]) - *(tri.positions[0]);
+
+	float area = cross(e1, e2).norm() / 2.0f;
+	triangle_areas_[i] = area;
+	total_area_ += area;
+	triangle_areas_cumsum_[i] = total_area_;
     }
 }
 
@@ -159,6 +177,8 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
         }
     }
 
+    calculate_areas();
+    
     bvh_ = new BVHNode(BVHNode::from_mesh(*this));
 }
 
@@ -241,7 +261,24 @@ bool TriangleMesh::ray_intersect(const Ray& ray, Intersect& intersect) const {
 }
 
 Vec3 TriangleMesh::sample(float& pdf) const {
-    return Vec3();
+    pdf = 1.0f / total_area_;
+
+    float t = random_01() * total_area_;
+
+    // linear search for now
+    size_t tri_index = 0;
+    while (triangle_areas_cumsum_[tri_index] < t) {
+	tri_index++;
+    }
+
+    float u = random_01();
+    float v = random_01();
+
+    Triangle tri = triangle(tri_index);
+
+    return (1.0f - u - v) * (*tri.positions[0])
+	+ u * (*tri.positions[1])
+	+ v * (*tri.positions[2]);
 }
 
 size_t TriangleMesh::triangle_count() const {

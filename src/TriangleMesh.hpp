@@ -24,11 +24,16 @@ private:
     
     std::vector<Vec3s> triangle_pos_indices_;
     std::vector<Vec3s> triangle_normal_indices_;
+    std::vector<float> triangle_areas_;
+    std::vector<float> triangle_areas_cumsum_;
+    
+    float total_area_;
     
     const BVHNode* bvh_;
 
     TriangleMesh& operator=(const TriangleMesh& other);
     void calculate_vertex_normals();
+    void calculate_areas();
     
 public:
     TriangleMesh(const std::string& obj_filepath);

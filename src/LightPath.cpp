@@ -55,7 +55,7 @@ void LightPath::print_subpaths(const std::string& base) const {
 }
 
 RGBColor LightPath::radiance_channel(const std::string& channel, int offset) const {
-    if (offset < 0) {
+    if (offset < 0 || (offset != 0 && tributaries_.size() == 0)) {
         return RGBColor();
     }
     
@@ -73,8 +73,12 @@ RGBColor LightPath::radiance_channel(const std::string& channel, int offset) con
     
     char my_type_letter = surface_type_letter(type_);
 
+    // std::cout << channel << " " << offset << " " << my_type_letter << " " << tributaries_.size() << "\n";
     if (my_type_letter == first || first == '.') {
-        RGBColor r = emitted_;
+        RGBColor r;
+	if (my_type_letter == 'L' && offset == 0) {
+	    r += emitted_;
+	}
         for (size_t i = 0; i < tributaries_.size(); i++) {
             r += brdfs_[i] * angle_cos_[i]
                 * tributaries_[i]->radiance_channel(channel, offset - 1)

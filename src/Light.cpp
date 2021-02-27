@@ -42,8 +42,11 @@ LightSample AreaLight::sample(const Vec3& point) const {
     float solid_angle_pdf = pdf * (on_light - point).norm_squared()
         / fabs(dot(itx.normal, -wi));
 
+    Ray shadow_ray = Ray::segment(point, on_light);
+    shadow_ray.tmax = 1 - EPSILON;
+    
     return LightSample(
-        Ray::segment(point, on_light),
+        shadow_ray,
         shape_->material()->emit(on_light, -wi),
         solid_angle_pdf
     );

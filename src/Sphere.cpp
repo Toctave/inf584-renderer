@@ -78,8 +78,7 @@ bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
 Vec3 Sphere::sample(float& pdf) const {
     pdf = 1.0f / (4.0f * M_PI * radius_ * radius_);
 
-    // return a point slightly below the surface to make it easier to hit the shape
-    Vec3 p = center_ + sample_unit_sphere() * radius_ * (1.0f - EPSILON);
+    Vec3 p = center_ + sample_unit_sphere() * radius_;
 
     return p;
 }
