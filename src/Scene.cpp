@@ -16,7 +16,7 @@ bool Scene::ray_intersect(Ray& ray, Intersect& itx) const {
 
 bool Scene::ray_intersect(const Ray& ray) const {
     for (const Shape* shape : shapes_) {
-        if (shape->primitive()->ray_intersect(ray)) {
+        if (shape->ray_intersect(ray)) {
             return true;
         }
     }

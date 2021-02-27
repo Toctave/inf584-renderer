@@ -38,6 +38,38 @@ Transform Transform::scale(float sx, float sy, float sz) {
 	);
 }
 
+static Matrix4 rotation_matrix(Vec3 axis, float angle) {
+    float uxx = axis[0] * axis[0];
+    float uxy = axis[0] * axis[1];
+    float uxz = axis[0] * axis[2];
+    float uyy = axis[1] * axis[1];
+    float uyz = axis[1] * axis[2];
+    float uzz = axis[2] * axis[2];
+
+    float ux = axis[0];
+    float uy = axis[1];
+    float uz = axis[2];
+
+    float c = std::cos(angle);
+    float omc = 1.0f - c;
+    
+    float s = std::sin(angle);
+
+    return Matrix4(
+	     uxx * omc + c, uxy * omc - uz * s, uxz * omc - uy * s, 0.0f,
+	uxy * omc + uz * s,      uyy * omc + c, uyz * omc - ux * s, 0.0f,
+	uxz * omc - uy * s, uyz * omc + ux * s,      uzz * omc + c, 0.0f,
+	              0.0f,               0.0f,               0.0f, 1.0f
+    );
+}
+
+Transform Transform::rotate(Vec3 axis, float angle) {
+    return Transform(
+	rotation_matrix(axis, angle),
+	rotation_matrix(axis, -angle)
+    );
+}
+
 Transform Transform::scale(float s) {
     return scale(s, s, s);
 }

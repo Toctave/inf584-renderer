@@ -38,6 +38,12 @@ bool Shape::ray_intersect(const Ray& ray, Intersect& intersect) const {
     return result;
 }
 
+bool Shape::ray_intersect(const Ray& ray) const {
+    Ray transformed_ray = transform_ray(transform_.inverse(), ray);
+    
+    return primitive_->ray_intersect(transformed_ray);
+}
+
 void Shape::set_transform(const Transform& transform) {
     transform_ = transform;
 }

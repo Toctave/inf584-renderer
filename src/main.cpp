@@ -29,6 +29,7 @@ struct Options {
     size_t width;
     size_t height;
     size_t sample_count;
+    size_t max_bounces;
 
     std::vector<std::string> light_paths;
 };
@@ -49,6 +50,7 @@ Options parse_options(int argc, char** argv) {
     options.width = 64;
     options.height = 64;
     options.sample_count = 10;
+    options.max_bounces = 3;
 
     int i = 1;
     for (i = 1; i < argc; i += 2) {
@@ -60,6 +62,8 @@ Options parse_options(int argc, char** argv) {
             options.width = parse_size_t(argv[i+1]);
         } else if (option == "-h") {
             options.height = parse_size_t(argv[i+1]);
+        } else if (option == "-b") {
+	    options.max_bounces = parse_size_t(argv[i+1]);
         } else {
 	    break;
 	}
@@ -132,6 +136,7 @@ LightPath* trace_ray(const Scene& scene,
         LightPath* path = new LightPath(itx.material->surface_type(),
                                         itx.point);
         explicit_shade(path, itx, scene, keep_lights);
+	
         
         if (max_bounces > 0) {
             Vec3 wo = -ray.d;
@@ -160,6 +165,12 @@ LightPath* trace_ray(const Scene& scene,
             Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
                        wi);
             
+            RGBColor f = itx.material->brdf(itx,
+                                            wi,
+                                            wo);
+
+            float cosine_factor = wi_sample[2];
+	    
             LightPath* bounce_path =
                 trace_ray(scene, bounce, max_bounces - 1, false);
 
@@ -167,15 +178,11 @@ LightPath* trace_ray(const Scene& scene,
                 return path;
             }
             
-            RGBColor f = itx.material->brdf(itx,
-                                            wi,
-                                            wo);
-            float u = wi_sample[2]; // cosine factor
 
             path->add_tributary(bounce_path,
                                 pdf,
                                 f,
-                                u);
+                                cosine_factor);
         }
         return path;
     }
@@ -246,17 +253,8 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_sphere, &emission);
 
-    teapot.set_transform(Transform::scale(1.0f, 1.0f, .5f));
+    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)));
 
-    // box.set_transform(
-    // 	Matrix4(
-    // 	    1.0f, 0.0f, 0.0f, 0.0f,
-    // 	    0.0f, 0.0f, -.3f, 0.0f,
-    // 	    0.0f, .6f, 0.0f, 1.0f,
-    // 	    0.0f, 0.0f, 0.0f, 1.0f
-    // 	)
-    // );
-    
     sc.add_shape(&box);
     sc.add_shape(&left_wall);
     sc.add_shape(&right_wall);
@@ -269,7 +267,6 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     AreaLight light(&light_shape);
     sc.add_light(&light);
     
-    const size_t bounces = 10;
     size_t samples_taken = 0;
     bool need_quit = false;
 
@@ -290,7 +287,7 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
                 Ray camera_ray = cam.get_ray(screen_sample);
 
                 LightPath* path =
-                    trace_ray(sc, camera_ray, bounces);
+                    trace_ray(sc, camera_ray, options.max_bounces);
                 
                 if (path) {
 		    for (size_t i = 0; i < options.light_paths.size(); i++) {
@@ -304,8 +301,8 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
             }
         }
 	samples_taken++;
-	double t1 = now();
-	std::cout << (t1 - t0) / samples_taken << "\n";
+	double total_time = now() - t0;
+	std::cout << total_time / samples_taken << "\n";
 	
 	draw_image(output_images[0], SDL_GetWindowSurface(window), samples_taken + 1);
 	

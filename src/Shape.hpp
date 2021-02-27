@@ -23,7 +23,8 @@ public:
 
     const Primitive* primitive() const;
     const Material* material() const;
-    virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const;
+    bool ray_intersect(const Ray& ray, Intersect& intersect) const;
+    bool ray_intersect(const Ray& ray) const;
 
     void set_transform(const Transform& transform);
     void set_transform(Transform&& transform);
