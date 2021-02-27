@@ -23,7 +23,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/BVH.cpp
   src/Microfacet.cpp
   src/LightPath.cpp
-  src/transform.cpp
+  src/Transform.cpp
   )
 
 find_package(OpenMP REQUIRED)

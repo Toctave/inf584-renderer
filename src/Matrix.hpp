@@ -30,11 +30,14 @@ class SquareMatrix : public Matrix<T, N, N> {
 public:
     template<typename... Args, typename std::enable_if<sizeof...(Args) == N * N, int>::type = 0>
     SquareMatrix(Args&&... args);
-    
+
+    SquareMatrix();
+    SquareMatrix(Matrix<T, N, N>&& mat);
     SquareMatrix(const T& lambda);
     SquareMatrix(const T (&args)[N * N]);
 
     SquareMatrix<T, N> inverse() const;
+    SquareMatrix<T, N> transpose() const;
 };
 
 template<typename T, size_t Rows, size_t Cols>

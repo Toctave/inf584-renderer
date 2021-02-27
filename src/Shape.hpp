@@ -2,6 +2,7 @@
 
 #include "Intersect.hpp"
 #include "Matrix.hpp"
+#include "Transform.hpp"
 
 class Primitive {
 public:
@@ -15,8 +16,7 @@ class Shape {
 private:
     const Material* material_;
     const Primitive* primitive_;
-    Matrix4 transform_;
-    Matrix4 inv_transform_;
+    Transform transform_;
 
 public:
     Shape(const Primitive* primitive, const Material* material);
@@ -25,6 +25,7 @@ public:
     const Material* material() const;
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const;
 
-    void set_transform(const Matrix4& transform);
+    void set_transform(const Transform& transform);
+    void set_transform(Transform&& transform);
 };
 

@@ -34,6 +34,16 @@ SquareMatrix<T, N>::SquareMatrix(const T& lambda) {
 }
 
 template<typename T, size_t N>
+SquareMatrix<T, N>::SquareMatrix()
+    : Matrix<T, N, N>() {
+}
+
+template<typename T, size_t N>
+SquareMatrix<T, N>::SquareMatrix(Matrix<T, N, N>&& mat)
+    : Matrix<T, N, N>(mat) {
+}
+
+template<typename T, size_t N>
 void swap_rows(SquareMatrix<T, N>& mat, size_t i, size_t j) {
     for (size_t k = 0; k < N; k++) {
 	T tmp = mat(i, k);
@@ -188,6 +198,20 @@ template<typename T, size_t Rows, size_t Cols>
 Vec<T, Rows * Cols> Matrix<T, Rows, Cols>::flattened() const {
     return Vec<T, Rows * Cols>(co_);
 }
+
+template<typename T, size_t N>
+SquareMatrix<T, N> SquareMatrix<T, N>::transpose() const {
+    SquareMatrix<T, N> result;
+
+    for (size_t i = 0; i < N; i++) {
+	for (size_t j = 0; j < N; j++) {
+	    result(j, i) = (*this)(i, j);
+	}
+    }
+    
+    return result;
+}
+
 
 template<typename T, size_t M, size_t N>
 Vec<T, M> operator*(const Matrix<T, M, N>& lhs, const Vec<T, N>& rhs) {

@@ -1,13 +1,13 @@
 #include "Shape.hpp"
 
-#include "transform.hpp"
+#include "Transform.hpp"
 
 void Primitive::print() const {
     std::cout << "Primitive\n";
 }
 
 Shape::Shape(const Primitive* primitive, const Material* material)
-    : material_(material), primitive_(primitive), transform_(1.0f), inv_transform_(1.0f) {
+    : material_(material), primitive_(primitive) {
 }
 
 const Primitive* Shape::primitive() const {
@@ -20,23 +20,29 @@ const Material* Shape::material() const {
 
 
 bool Shape::ray_intersect(const Ray& ray, Intersect& intersect) const {
-    Ray transformed_ray(transform_point(inv_transform_, ray.o), transform_vector(inv_transform_, ray.d));
-    transformed_ray.tmax = ray.tmax;
+    Ray transformed_ray = transform_ray(transform_.inverse(), ray);
     
     bool result = primitive_->ray_intersect(transformed_ray, intersect);
     
     if (result) {
-	intersect.normal = transform_vector(transform_, intersect.normal);
+	intersect.normal = transform_normal(transform_, intersect.normal);
         intersect.point = transform_point(transform_, transformed_ray.at(intersect.t));
         intersect.wo = transform_vector(transform_, -transformed_ray.d);
         intersect.shape = this;
         intersect.material = material_;
+
+	intersect.normal.normalize();
+	intersect.wo.normalize();
     }
 
     return result;
 }
 
-void Shape::set_transform(const Matrix4& transform) {
+void Shape::set_transform(const Transform& transform) {
     transform_ = transform;
-    inv_transform_ = transform.inverse();
 }
+
+void Shape::set_transform(Transform&& transform) {
+    transform_ = transform;
+}
+

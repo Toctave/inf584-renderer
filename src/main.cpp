@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <sstream>
+#include <chrono>
 
 #include <csignal>
 #include <fenv.h>
@@ -197,6 +198,16 @@ void draw_image(const RGBImage& image, SDL_Surface* surface, size_t samples) {
     }
 }
 
+double now() {
+    static auto t0 = std::chrono::high_resolution_clock::now();
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> diff = t1 - t0;
+
+    return diff.count();
+}
+
 void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Options& options) {
     Scene sc;
 
@@ -235,14 +246,16 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_sphere, &emission);
 
-    teapot.set_transform(
-	Matrix4(
-	    1.0f, 0.0f, 0.0f, 0.0f,
-	    0.0f, 0.0f, -.3f, 0.0f,
-	    0.0f, .6f, 0.0f, 1.0f,
-	    0.0f, 0.0f, 0.0f, 1.0f
-	)
-    );
+    teapot.set_transform(Transform::scale(1.0f, 1.0f, .5f));
+
+    // box.set_transform(
+    // 	Matrix4(
+    // 	    1.0f, 0.0f, 0.0f, 0.0f,
+    // 	    0.0f, 0.0f, -.3f, 0.0f,
+    // 	    0.0f, .6f, 0.0f, 1.0f,
+    // 	    0.0f, 0.0f, 0.0f, 1.0f
+    // 	)
+    // );
     
     sc.add_shape(&box);
     sc.add_shape(&left_wall);
@@ -259,6 +272,8 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     const size_t bounces = 10;
     size_t samples_taken = 0;
     bool need_quit = false;
+
+    double t0 = now();
 
     while (samples_taken < options.sample_count && !need_quit) {
 	std::cout << "sample " << samples_taken + 1 << "\n";
@@ -289,6 +304,8 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
             }
         }
 	samples_taken++;
+	double t1 = now();
+	std::cout << (t1 - t0) / samples_taken << "\n";
 	
 	draw_image(output_images[0], SDL_GetWindowSurface(window), samples_taken + 1);
 	

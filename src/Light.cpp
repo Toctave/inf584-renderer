@@ -37,9 +37,6 @@ LightSample AreaLight::sample(const Vec3& point) const {
     }
 
     on_light = itx_ray.at(itx.t);
-    if (itx.t < EPSILON) {
-        throw std::runtime_error("Shadow ray error");
-    }
 
     Vec3 wi = (on_light - point).normalized();
     float solid_angle_pdf = pdf * (on_light - point).norm_squared()
