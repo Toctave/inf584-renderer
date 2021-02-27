@@ -216,7 +216,7 @@ double now() {
 }
 
 Vec2 get_screen_sample(size_t row, size_t col, size_t width, size_t height, size_t sample_idx) {
-    static const size_t grid_size = 4;
+    static const size_t grid_size = 8;
     static const float inv_grid_cell_width = 1.0f / grid_size;
 
     size_t i = sample_idx % (grid_size * grid_size);
@@ -294,7 +294,7 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     double t0 = now();
 
     while (samples_taken < options.sample_count && !need_quit) {
-	std::cout << "sample " << samples_taken + 1 << "\n";
+	std::cout << "sample " << samples_taken + 1;
 #pragma omp parallel for schedule(static, 4)
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
@@ -317,7 +317,7 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
         }
 	samples_taken++;
 	double total_time = now() - t0;
-	std::cout << total_time / samples_taken << "\n";
+	std::cout << " took " << total_time / samples_taken << "s (" << total_time << "s total)\n";
 	
 	draw_image(output_images[0], SDL_GetWindowSurface(window), samples_taken + 1);
 	
