@@ -2,8 +2,10 @@
 
 #include <cmath>
 
-MicrofacetMaterial::MicrofacetMaterial(float roughness, float f0)
-    : roughness_(roughness),
+MicrofacetMaterial::MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float f0)
+    : albedo_(albedo),
+      specular_ratio_(specular_ratio),
+      roughness_(roughness),
       alpha_(roughness * roughness),
       alpha2_(alpha_ * alpha_),
       f0_(f0) {
@@ -41,7 +43,7 @@ RGBColor MicrofacetMaterial::brdf(const Intersect& itx,
 
     float brdf_val = d * fresnel * g / (4.0f * n_dot_wi * n_dot_wo);
 
-    return RGBColor(brdf_val);
+    return (1.0f - specular_ratio_) * albedo_ / static_cast<float>(M_PI) + specular_ratio_ * RGBColor(brdf_val);
 }
 
 SurfaceType MicrofacetMaterial::surface_type() const {

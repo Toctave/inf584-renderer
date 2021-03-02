@@ -49,7 +49,7 @@ Options parse_options(int argc, char** argv) {
     Options options;
     options.width = 64;
     options.height = 64;
-    options.sample_count = 10;
+    options.sample_count = 1000000;
     options.max_bounces = 3;
 
     int i = 1;
@@ -177,7 +177,6 @@ LightPath* trace_ray(const Scene& scene,
             if (!bounce_path) {
                 return path;
             }
-            
 
             path->add_tributary(bounce_path,
                                 pdf,
@@ -193,13 +192,11 @@ float radians(float deg) {
     return M_PI * deg / 180.0f;
 }
 
-void draw_image(const RGBImage& image, SDL_Surface* surface, size_t samples) {
-    float scale = 1.0f / samples;
-    for (size_t row = 0; row < image.height(); row++) {
-	for (size_t col = 0; col < image.width(); col++) {
-	    RGBColor color = scale * image(row, col);
-	    RGB8 pixel8 = color.to_8bit();
-	    uint32_t* surface_pixel = ((uint32_t*)surface->pixels) + row * image.width() + col;
+void draw_image(const Buffer2D<RGB8>& image, SDL_Surface* surface) {
+    for (size_t row = 0; row < image.rows(); row++) {
+	for (size_t col = 0; col < image.columns(); col++) {
+	    RGB8 pixel8 = image(row, col);
+	    uint32_t* surface_pixel = ((uint32_t*)surface->pixels) + row * image.rows() + col;
 	    *surface_pixel = SDL_MapRGB(surface->format, pixel8.r, pixel8.g, pixel8.b);
 	}
     }
@@ -215,8 +212,8 @@ double now() {
     return diff.count();
 }
 
-Vec2 get_screen_sample(size_t row, size_t col, size_t width, size_t height, size_t sample_idx) {
-    static const size_t grid_size = 8;
+Vec2 get_image_sample(size_t row, size_t col, size_t width, size_t height, size_t sample_idx) {
+    static const size_t grid_size = 4;
     static const float inv_grid_cell_width = 1.0f / grid_size;
 
     size_t i = sample_idx % (grid_size * grid_size);
@@ -230,13 +227,17 @@ Vec2 get_screen_sample(size_t row, size_t col, size_t width, size_t height, size
 	(gy + random_offset[1]) * inv_grid_cell_width
     );
     
+    return Vec2(static_cast<float>(col), static_cast<float>(row)) + random_offset;
+}
+
+Vec2 to_screen_space(Vec2 sample, size_t width, size_t height) {
     return Vec2(
-	2.0f * (static_cast<float>(col) + jittered_offset[0]) / width - 1.0f,
-	1.0f - 2.0f * (static_cast<float>(row) + jittered_offset[1]) / height
+	2.0f * sample[0] / width - 1.0f,
+	1.0f - 2.0f * sample[1] / height
     );
 }
 
-void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Options& options) {
+void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Options& options) {
     Scene sc;
 
     initialize_random_system();
@@ -251,37 +252,37 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
 
     LambertMaterial red(RGBColor(.5f, 0, 0));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
-    LambertMaterial white(RGBColor::gray(.5f));
+    LambertMaterial white(RGBColor::gray(1.0f));
     LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
     
-    MicrofacetMaterial glossy(.2f, 1.0f);
+    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, .7f), .5f, .2f, .5f);
     
-    Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
+    Emission emission(20.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
-    // TriangleMesh teapot_mesh("teapot.obj");
+    TriangleMesh teapot_mesh("dragon.obj");
     TriangleMesh box_mesh("box.obj");
     TriangleMesh left_wall_mesh("left_wall.obj");
     TriangleMesh right_wall_mesh("right_wall.obj");
 
     Sphere light_sphere(Vec3({.0f, .0f, 1.8f}), .15f);
-    TriangleMesh light_mesh("light.obj");
+    // TriangleMesh light_mesh("light.obj");
     
-    Sphere sphere(Vec3({.5f, .5f, .3f}), .3f);
+    Sphere sphere(Vec3({.5f, -.5f, .25f}), .25f);
 
-    // Shape teapot(&teapot_mesh, &glossy);
-    Shape red_sphere(&sphere, &glossy);
+    Shape teapot(&teapot_mesh, &glossy);
+    Shape red_sphere(&sphere, &red);
     Shape box(&box_mesh, &white);
     Shape left_wall(&left_wall_mesh, &yellow);
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_sphere, &emission);
 
-    // teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)));
+    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
 
     sc.add_shape(&box);
     sc.add_shape(&left_wall);
     sc.add_shape(&right_wall);
     
-    // sc.add_shape(&teapot);
+    sc.add_shape(&teapot);
     sc.add_shape(&red_sphere);
     
     sc.add_shape(&light_shape);
@@ -293,13 +294,16 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
     bool need_quit = false;
 
     double t0 = now();
+    double last_time = t0;
 
     while (samples_taken < options.sample_count && !need_quit) {
 	std::cout << "sample " << samples_taken + 1;
 #pragma omp parallel for schedule(static, 4)
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
-		Vec2 screen_sample = get_screen_sample(row, col, options.width, options.height, samples_taken);
+		Vec2 image_sample = get_image_sample(row, col, options.width, options.height, samples_taken);
+		Vec2 screen_sample = to_screen_space(image_sample, options.width, options.height);
+		
                 Ray camera_ray = cam.get_ray(screen_sample);
 
                 LightPath* path =
@@ -308,8 +312,7 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
                 if (path) {
 		    for (size_t i = 0; i < options.light_paths.size(); i++) {
 			RGBColor radiance = path->radiance_channel(options.light_paths[i]);
-			
-			output_images[i](row, col) += radiance;
+			output_images[i].add_sample(image_sample, radiance);
 		    }
                 
                     delete path;
@@ -317,24 +320,22 @@ void render(SDL_Window* window, std::vector<RGBImage>& output_images, const Opti
             }
         }
 	samples_taken++;
-	double total_time = now() - t0;
-	std::cout << " took " << total_time / samples_taken << "s (" << total_time << "s total)\n";
-	
-	draw_image(output_images[0], SDL_GetWindowSurface(window), samples_taken + 1);
+
+	double t1 = now();
+	double total_time = t1 - t0;
+	std::cout << " took "
+		  << t1 - last_time << "s ("
+		  << total_time << "s total, "
+		  << total_time / samples_taken << "s avg)\n";
+	last_time = t1;
+
+	draw_image(output_images[0].get_image(), SDL_GetWindowSurface(window));
 	
 	SDL_UpdateWindowSurface(window);
 	SDL_Event evt;
 	while (SDL_PollEvent(&evt)) {
 	    if (evt.type == SDL_QUIT) {
 		need_quit = true;
-	    }
-	}
-    }
-    
-    for (size_t i = 0; i < options.light_paths.size(); i++) {
-	for (size_t row = 0; row < options.height; row++) {
-	    for (size_t col = 0; col < options.width; col++) {
-		output_images[i](row, col) /= static_cast<float>(samples_taken);
 	    }
 	}
     }
@@ -345,9 +346,9 @@ void fpe_handler(int signum) {
 
 int main(int argc, char** argv) {
     Options options = parse_options(argc, argv);
-    std::vector<RGBImage> output_images;
+    std::vector<RGBFilm> output_images;
     for (size_t i = 0; i < options.light_paths.size(); i++) {
-	output_images.push_back(RGBImage(options.width, options.height));
+	output_images.push_back(RGBFilm(options.width, options.height));
     }
     
     SDL_Init(SDL_INIT_VIDEO);
@@ -356,12 +357,9 @@ int main(int argc, char** argv) {
 
     render(window, output_images, options);
 
-    signal(SIGFPE, fpe_handler);
-    feenableexcept(FE_INVALID);
-
     for (size_t i = 0; i < options.light_paths.size(); i++) {
 	std::ofstream output_file("out" + options.light_paths[i] + ".png");
-	output_images[i].output_png(output_file);
+	write_png(output_images[i].get_image(), output_file);
     }
 
     SDL_DestroyWindow(window);
