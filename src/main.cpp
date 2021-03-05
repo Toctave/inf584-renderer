@@ -5,10 +5,8 @@
 #include <sstream>
 #include <chrono>
 
-#include <csignal>
-#include <fenv.h>
-
 #include <SDL2/SDL.h>
+#include <ANN/ANN.h>
 
 #include "Vec.hpp"
 #include "Matrix.hpp"
@@ -54,9 +52,9 @@ Options parse_options(int argc, char** argv) {
     Options options;
     options.width = 64;
     options.height = 64;
-    options.sample_count = 1000000;
+    options.sample_count = ~0ull;
     options.max_bounces = 3;
-    options.filter_radius = 1.0f;
+    options.filter_radius = 1.5f;
     options.output_base = "out";
 
     int i = 1;
@@ -148,7 +146,6 @@ LightPath* trace_ray(const Scene& scene,
                                         itx.point);
         explicit_shade(path, itx, scene, keep_lights);
 	
-        
         if (max_bounces > 0) {
             Vec3 wo = -ray.d;
             Vec3 local_basis_y = cross(wo, itx.normal);
@@ -274,10 +271,10 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 
     LambertMaterial red(RGBColor(.8f, .3f, .2f));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
-    LambertMaterial white(RGBColor::gray(1.0f));
+    LambertMaterial white(RGBColor::gray(.9f));
     LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
     
-    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, .7f), .5f, .2f, .5f);
+    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, .7f), 0.5f, .2f, .05f);
     
     Emission emission(20.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
@@ -286,7 +283,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     TriangleMesh left_wall_mesh("left_wall.obj");
     TriangleMesh right_wall_mesh("right_wall.obj");
 
-    Sphere light_sphere(Vec3({.0f, .0f, 1.8f}), .15f);
+    Sphere light_sphere(Vec3({.0f, 0.0f, 1.8f}), .15f);
     // TriangleMesh light_mesh("light.obj");
     
     Sphere sphere(Vec3({.5f, -.5f, .25f}), .25f);
@@ -298,7 +295,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_sphere, &emission);
 
-    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
+    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(135.0f)) * Transform::scale(1.0f));
 
     sc.add_shape(&box);
     sc.add_shape(&left_wall);
@@ -330,12 +327,15 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
                 LightPath* path =
                     trace_ray(sc, camera_ray, options.max_bounces);
                 
-                if (path) {
-		    for (size_t i = 0; i < options.light_paths.size(); i++) {
-			RGBColor radiance = path->radiance_channel(options.light_paths[i]);
-			output_images[i].add_sample(image_sample, radiance);
+		for (size_t i = 0; i < options.light_paths.size(); i++) {
+		    RGBColor radiance;
+		    if (path) {
+			radiance = path->radiance_channel(options.light_paths[i]);
 		    }
-                
+		    output_images[i].add_sample(image_sample, radiance);
+		}
+		
+                if (path) {
                     delete path;
                 }
             }

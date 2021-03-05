@@ -43,7 +43,7 @@ RGBColor MicrofacetMaterial::brdf(const Intersect& itx,
 
     float brdf_val = d * fresnel * g / (4.0f * n_dot_wi * n_dot_wo);
 
-    return (1.0f - specular_ratio_) * albedo_ / static_cast<float>(M_PI) + specular_ratio_ * RGBColor(brdf_val);
+    return albedo_ / static_cast<float>(M_PI) + RGBColor(brdf_val);
 }
 
 SurfaceType MicrofacetMaterial::surface_type() const {

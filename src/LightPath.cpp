@@ -30,7 +30,7 @@ LightPath::~LightPath() {
 
 
 RGBColor LightPath::radiance_channel(const LightPathExpression& channel, int offset) const {
-    if (offset < 0 || (offset != 0 && tributaries_.size() == 0)) {
+    if (offset < 0) {
         return RGBColor();
     }
     

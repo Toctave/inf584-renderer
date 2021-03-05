@@ -58,7 +58,7 @@ private:
 public:
     RGBFilm(size_t width, size_t height, float filter_radius=1.0f);
 
-    void add_sample(const Vec2& pos, const RGBColor& color);
+    void add_sample(const Vec2& pos, RGBColor color);
 
     Buffer2D<RGBColor> get_colors() const;
     Buffer2D<RGB8> get_image() const;

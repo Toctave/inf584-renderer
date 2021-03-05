@@ -10,7 +10,7 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray) {
     Vec3 edge2 = *triangle.positions[2] - *triangle.positions[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
-    if (a > -EPSILON && a < EPSILON)
+    if (a == 0.0f)
         return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
@@ -37,7 +37,7 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
     Vec3 edge2 = *triangle.positions[2] - *triangle.positions[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
-    if (std::abs(a) < 1.0e-6f)
+    if (a == 0.0f)
         return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
