@@ -5,28 +5,20 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-template<typename T>
-Buffer2D<T> resized(const Buffer2D<T>& buffer, size_t new_rows, size_t new_columns, ResizeFilter filter) {
-    Buffer2D<T> new_buffer(new_rows, new_columns);
+RGBFilm::RGBFilm(size_t width, size_t height, float filter_radius)
+    : colors_(height, width), weights_(height, width), filter_radius_(filter_radius) {
+}
 
-    for (size_t row = 0; row < new_rows; row++) {
-	for (size_t col = 0; col < new_columns; col++) {
-	    if (filter == NEAREST_NEIGHBOUR) {
-		size_t old_row = row * buffer.rows() / new_rows;
-		size_t old_col = col * buffer.columns() / new_columns;
-
-		new_buffer(row, col) = buffer(old_row, old_col);
-	    } else {
-		throw new std::invalid_argument("Unknown resize filter");
-	    }
+Buffer2D<RGB8> to_rgb8(const Buffer2D<RGBColor> color) {
+    Buffer2D<RGB8> img(color.rows(), color.columns());
+    
+    for (size_t row = 0; row < color.rows(); row++) {
+	for (size_t col = 0; col < color.columns(); col++) {
+	    img(row, col) = color(row, col).to_8bit();
 	}
     }
 
-    return new_buffer;
-}
-
-RGBFilm::RGBFilm(size_t width, size_t height)
-    : colors_(height, width), weights_(height, width) {
+    return img;
 }
 
 static float mitchell_1d(float x) {
@@ -55,7 +47,6 @@ void RGBFilm::add_sample(size_t row, size_t col, const RGBColor& color, float we
 void RGBFilm::add_sample(const Vec2& pos, const RGBColor& color) {
     static const float firefly_threshold = 300.0f;
     static const float firefly_threshold_squared = firefly_threshold * firefly_threshold;
-    static const float r = 1.3f;
 
     // discard samples carrying too much light
     // this biases the render, but leads to smoother results
@@ -63,11 +54,11 @@ void RGBFilm::add_sample(const Vec2& pos, const RGBColor& color) {
 	return;
     }
     
-    size_t colmin = static_cast<size_t>(std::floor(pos[0] + .5f - r));
-    size_t colmax = static_cast<size_t>(std::ceil(pos[0] - 1.5f + r));
+    size_t colmin = static_cast<size_t>(std::floor(pos[0] + .5f - filter_radius_));
+    size_t colmax = static_cast<size_t>(std::ceil(pos[0] - 1.5f + filter_radius_));
 
-    size_t rowmin = static_cast<size_t>(std::floor(pos[1] + .5f - r));
-    size_t rowmax = static_cast<size_t>(std::ceil(pos[1] - 1.5f + r));
+    size_t rowmin = static_cast<size_t>(std::floor(pos[1] + .5f - filter_radius_));
+    size_t rowmax = static_cast<size_t>(std::ceil(pos[1] - 1.5f + filter_radius_));
 
     if (colmin >= height()) {
 	colmin = 0;
@@ -87,11 +78,20 @@ void RGBFilm::add_sample(const Vec2& pos, const RGBColor& color) {
 	for (size_t col = colmin; col <= colmax; col++) {
 	    Vec2 pixel_center(col + .5f, row + .5f);
 
-	    Vec2 d = (pos - pixel_center) / r;
-	    float weight = mitchell_filter(d) / (r * r);
+	    Vec2 d = (pos - pixel_center) / filter_radius_;
+	    float weight = mitchell_filter(d) / (filter_radius_ * filter_radius_);
 	    
 	    add_sample(row, col, color, weight);
 	}
+    }
+}
+
+RGBColor RGBFilm::get_color(size_t row, size_t col) const {
+    float w = weights_(row, col);
+    if (w == 0.0f) {
+	return RGBColor(1, 0, 1);
+    } else {
+	return colors_(row, col) / w;
     }
 }
 
@@ -100,12 +100,19 @@ Buffer2D<RGB8> RGBFilm::get_image() const {
 
     for (size_t row = 0; row < height(); row++) {
 	for (size_t col = 0; col < width(); col++) {
-	    float w = weights_(row, col);
-	    if (w == 0.0f) {
-		image(row, col) = RGBColor(1, 0, 1).to_8bit();
-	    } else {
-		image(row, col) = RGBColor(colors_(row, col) / w).to_8bit();
-	    }
+	    image(row, col) = get_color(row, col).to_8bit();
+	}
+    }
+
+    return image;
+}
+
+Buffer2D<RGBColor> RGBFilm::get_colors() const {
+    Buffer2D<RGBColor> image(height(), width());
+
+    for (size_t row = 0; row < height(); row++) {
+	for (size_t col = 0; col < width(); col++) {
+	    image(row, col) = get_color(row, col);
 	}
     }
 

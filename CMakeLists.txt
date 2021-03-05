@@ -24,6 +24,8 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Microfacet.cpp
   src/LightPath.cpp
   src/Transform.cpp
+  src/LightPathExpression.cpp
+  src/stylit/FeatureVector.cpp
   )
 
 find_package(OpenMP REQUIRED)

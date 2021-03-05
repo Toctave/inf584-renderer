@@ -3,7 +3,7 @@
 #include <vector>
 #include "Color.hpp"
 
-enum ResizeFilter { NEAREST_NEIGHBOUR };
+enum ResizeFilter { NEAREST_NEIGHBOUR, BILINEAR };
 
 template<typename T>
 class Buffer2D {
@@ -29,19 +29,38 @@ public:
 };
 
 template<typename T>
-Buffer2D<T> resized(const Buffer2D<T>& buffer, size_t new_rows, size_t new_columns, ResizeFilter filter);
+Buffer2D<T> resized(const Buffer2D<T>& buffer, size_t new_rows, size_t new_columns) {
+    Buffer2D<T> new_buffer(new_rows, new_columns);
+
+    for (size_t row = 0; row < new_rows; row++) {
+	for (size_t col = 0; col < new_columns; col++) {
+	    size_t old_row = row * buffer.rows() / new_rows;
+	    size_t old_col = col * buffer.columns() / new_columns;
+	    
+	    new_buffer(row, col) = buffer(old_row, old_col);
+	}
+    }
+
+    return new_buffer;
+}
+
+Buffer2D<RGB8> to_rgb8(const Buffer2D<RGBColor> color);
 
 class RGBFilm {
 private:
     Buffer2D<RGBColor> colors_;
     Buffer2D<float> weights_;
+    float filter_radius_;
 
     void add_sample(size_t row, size_t col, const RGBColor& color, float weight);
+    RGBColor get_color(size_t row, size_t col) const;
+    
 public:
-    RGBFilm(size_t width, size_t height);
+    RGBFilm(size_t width, size_t height, float filter_radius=1.0f);
 
     void add_sample(const Vec2& pos, const RGBColor& color);
 
+    Buffer2D<RGBColor> get_colors() const;
     Buffer2D<RGB8> get_image() const;
     
     size_t width() const;
@@ -50,3 +69,4 @@ public:
 
 void write_png(const Buffer2D<RGB8>& colors, std::ostream& out);
 void write_ppm(const Buffer2D<RGB8>& colors, std::ostream& out);
+

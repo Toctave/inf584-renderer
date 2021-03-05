@@ -24,18 +24,23 @@
 #include "TriangleMesh.hpp"
 #include "BVH.hpp"
 #include "LightPath.hpp"
+#include "stylit/stylit.hpp"
 
 struct Options {
     size_t width;
     size_t height;
     size_t sample_count;
     size_t max_bounces;
+    float filter_radius;
 
-    std::vector<std::string> light_paths;
+    std::string output_base;
+
+    std::vector<LightPathExpression> light_paths;
 };
 
-size_t parse_size_t(const std::string& s) {
-    size_t v;
+template<typename T>
+T parse(const std::string& s) {
+    T v;
     std::stringstream sstream(s);
     sstream >> v;
     return v;
@@ -51,20 +56,26 @@ Options parse_options(int argc, char** argv) {
     options.height = 64;
     options.sample_count = 1000000;
     options.max_bounces = 3;
+    options.filter_radius = 1.0f;
+    options.output_base = "out";
 
     int i = 1;
     for (i = 1; i < argc; i += 2) {
         std::string option(argv[i]);
         
         if (option == "-s") {
-            options.sample_count = parse_size_t(argv[i+1]);
+            options.sample_count = parse<size_t>(argv[i+1]);
         } else if (option == "-w") {
-            options.width = parse_size_t(argv[i+1]);
+            options.width = parse<size_t>(argv[i+1]);
         } else if (option == "-h") {
-            options.height = parse_size_t(argv[i+1]);
+            options.height = parse<size_t>(argv[i+1]);
         } else if (option == "-b") {
-	    options.max_bounces = parse_size_t(argv[i+1]);
-        } else {
+	    options.max_bounces = parse<size_t>(argv[i+1]);
+        } else if (option == "--filter-radius") {
+	    options.filter_radius = parse<float>(argv[i+1]);
+	} else if (option == "-o") {
+	    options.output_base = parse<std::string>(argv[i+1]);
+	} else {
 	    break;
 	}
     }
@@ -76,7 +87,7 @@ Options parse_options(int argc, char** argv) {
     }
 
     if (options.light_paths.size() == 0) {
-	options.light_paths.push_back("L*E");
+	options.light_paths.push_back(LightPathExpression("L*E"));
     }
 
     return options;
@@ -206,9 +217,7 @@ double now() {
     static auto t0 = std::chrono::high_resolution_clock::now();
 
     auto t1 = std::chrono::high_resolution_clock::now();
-
     std::chrono::duration<double> diff = t1 - t0;
-
     return diff.count();
 }
 
@@ -237,6 +246,19 @@ Vec2 to_screen_space(Vec2 sample, size_t width, size_t height) {
     );
 }
 
+std::string formatted_time(double seconds) {
+    double minutes = std::floor(seconds / 60.0);
+    seconds -= minutes * 60.0;
+    
+    double hours = std::floor(minutes / 60.0);
+    minutes -= hours * 60.0;
+
+    std::stringstream ss;
+    ss << hours << "hrs " << minutes << "m " << seconds << "s";
+
+    return ss.str();
+}
+
 void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Options& options) {
     Scene sc;
 
@@ -250,7 +272,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
                fov,
                static_cast<float>(options.width) / options.height);
 
-    LambertMaterial red(RGBColor(.5f, 0, 0));
+    LambertMaterial red(RGBColor(.8f, .3f, .2f));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
     LambertMaterial white(RGBColor::gray(1.0f));
     LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
@@ -297,7 +319,6 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     double last_time = t0;
 
     while (samples_taken < options.sample_count && !need_quit) {
-	std::cout << "sample " << samples_taken + 1;
 #pragma omp parallel for schedule(static, 4)
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
@@ -322,11 +343,15 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 	samples_taken++;
 
 	double t1 = now();
-	double total_time = t1 - t0;
-	std::cout << " took "
+	double elapsed = t1 - t0;
+	double average = elapsed / samples_taken;
+	double expected_remaining = average * options.sample_count - elapsed;
+	
+	std::cout << "sample " << samples_taken << " took "
 		  << t1 - last_time << "s ("
-		  << total_time << "s total, "
-		  << total_time / samples_taken << "s avg)\n";
+		  << formatted_time(elapsed) << "s elapsed, "
+		  << average << "s avg, "
+		  << formatted_time(expected_remaining) << "s remaining)\n";
 	last_time = t1;
 
 	draw_image(output_images[0].get_image(), SDL_GetWindowSurface(window));
@@ -341,14 +366,11 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     }
 }
 
-void fpe_handler(int signum) {
-}
-
 int main(int argc, char** argv) {
     Options options = parse_options(argc, argv);
     std::vector<RGBFilm> output_images;
     for (size_t i = 0; i < options.light_paths.size(); i++) {
-	output_images.push_back(RGBFilm(options.width, options.height));
+	output_images.push_back(RGBFilm(options.width, options.height, options.filter_radius));
     }
     
     SDL_Init(SDL_INIT_VIDEO);
@@ -358,8 +380,15 @@ int main(int argc, char** argv) {
     render(window, output_images, options);
 
     for (size_t i = 0; i < options.light_paths.size(); i++) {
-	std::ofstream output_file("out" + options.light_paths[i] + ".png");
-	write_png(output_images[i].get_image(), output_file);
+	std::stringstream oss;
+	oss << options.output_base << "_" << options.light_paths[i] << ".png";
+
+	std::cout << "Writing " << oss.str() << " ...\n";
+	
+	std::ofstream output_file(oss.str());
+	
+	Buffer2D<RGBColor> colors = output_images[i].get_colors();
+	write_png(to_rgb8(colors), output_file);
     }
 
     SDL_DestroyWindow(window);

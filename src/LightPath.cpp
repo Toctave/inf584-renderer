@@ -28,39 +28,14 @@ LightPath::~LightPath() {
     }
 }
 
-char surface_type_letter(SurfaceType type) {
-    switch(type) {
-    case SurfaceType::EYE:
-        return 'E';
-    case SurfaceType::DIFFUSE:
-        return 'D';
-    case SurfaceType::SPECULAR:
-        return 'S';
-    case SurfaceType::LIGHT:
-        return 'L';
-    default:
-        return '?';
-    }
-}
 
-void LightPath::print_subpaths(const std::string& base) const {
-    std::string s = surface_type_letter(type_) + base;
-    if (tributaries_.size() == 0) {
-        std::cout << s << " " << emitted_ << "\n";
-    } else {
-        for (const LightPath* path: tributaries_) {
-            path->print_subpaths(s);
-        }
-    }
-}
-
-RGBColor LightPath::radiance_channel(const std::string& channel, int offset) const {
+RGBColor LightPath::radiance_channel(const LightPathExpression& channel, int offset) const {
     if (offset < 0 || (offset != 0 && tributaries_.size() == 0)) {
         return RGBColor();
     }
     
-    char first = channel[offset];
-    if (first == '*') {
+    SurfaceType first = channel[offset];
+    if (first == SurfaceType::REPEAT) {
         RGBColor r = emitted_;
         for (size_t i = 0; i < tributaries_.size(); i++) {
             RGBColor tr =
@@ -71,12 +46,9 @@ RGBColor LightPath::radiance_channel(const std::string& channel, int offset) con
         return r;
     }
     
-    char my_type_letter = surface_type_letter(type_);
-
-    // std::cout << channel << " " << offset << " " << my_type_letter << " " << tributaries_.size() << "\n";
-    if (my_type_letter == first || first == '.') {
+    if (first == type_ || first == SurfaceType::ANY) {
         RGBColor r;
-	if (my_type_letter == 'L' && offset == 0) {
+	if (type_ == SurfaceType::LIGHT && offset == 0) {
 	    r += emitted_;
 	}
         for (size_t i = 0; i < tributaries_.size(); i++) {
@@ -90,9 +62,9 @@ RGBColor LightPath::radiance_channel(const std::string& channel, int offset) con
     }
 }
 
-RGBColor LightPath::radiance_channel(const std::string& channel) const {
+RGBColor LightPath::radiance_channel(const LightPathExpression& channel) const {
     int length = channel.length();
-    assert(channel[length - 1] == 'E');
+    assert(channel[length - 1] == SurfaceType::EYE);
     
     return radiance_channel(channel, length - 2);
 }

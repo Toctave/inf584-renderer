@@ -4,7 +4,7 @@
 #include "Vec.hpp"
 #include "Color.hpp"
 
-enum SurfaceType { EYE, DIFFUSE, SPECULAR, LIGHT, TYPE_COUNT };
+enum SurfaceType { EYE, DIFFUSE, SPECULAR, LIGHT, ANY, REPEAT };
 
 class Material {
 public:
