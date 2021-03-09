@@ -205,7 +205,7 @@ void draw_image(const Buffer2D<RGB8>& image, SDL_Surface* surface) {
     for (size_t row = 0; row < image.rows(); row++) {
 	for (size_t col = 0; col < image.columns(); col++) {
 	    RGB8 pixel8 = image(row, col);
-	    uint32_t* surface_pixel = ((uint32_t*)surface->pixels) + row * image.rows() + col;
+	    uint32_t* surface_pixel = ((uint32_t*)surface->pixels) + row * surface->w + col;
 	    *surface_pixel = SDL_MapRGB(surface->format, pixel8.r, pixel8.g, pixel8.b);
 	}
     }
@@ -234,7 +234,7 @@ Vec2 get_image_sample(size_t row, size_t col, size_t width, size_t height, size_
 	(gy + random_offset[1]) * inv_grid_cell_width
     );
     
-    return Vec2(static_cast<float>(col), static_cast<float>(row)) + random_offset;
+    return Vec2(static_cast<float>(col), static_cast<float>(row)) + jittered_offset;
 }
 
 Vec2 to_screen_space(Vec2 sample, size_t width, size_t height) {
@@ -257,8 +257,24 @@ std::string formatted_time(double seconds) {
     return ss.str();
 }
 
+void blit_fit(SDL_Surface* src, SDL_Surface* dst) {
+    SDL_Rect dst_rect = {0, 0, dst->w, dst->h};
+    SDL_FillRect(dst, &dst_rect, SDL_MapRGB(dst->format, 0, 0, 0));
+    
+    if (src->w * dst->h < dst->w * src->h) {
+    	dst_rect.w = dst_rect.h * src->w / src->h;
+    	dst_rect.x = (dst->w - dst_rect.w) / 2;
+    } else {
+    	dst_rect.h = dst_rect.w * src->h / src->w;
+    	dst_rect.y = (dst->h - dst_rect.h) / 2;
+    }
+    
+    SDL_BlitScaled(src, NULL, dst, &dst_rect);
+}
+
 void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Options& options) {
     Scene sc;
+    SDL_Surface* surf = SDL_CreateRGBSurface(0, options.width, options.height, 32, 0, 0, 0, 0);
 
     initialize_random_system();
 
@@ -358,7 +374,8 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 	std::cout << ")\n";
 	last_time = t1;
 
-	draw_image(output_images[0].get_image(), SDL_GetWindowSurface(window));
+	draw_image(output_images[0].get_image(), surf);
+	blit_fit(surf, SDL_GetWindowSurface(window));
 	
 	SDL_UpdateWindowSurface(window);
 	SDL_Event evt;
@@ -368,6 +385,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 	    }
 	}
     }
+    SDL_FreeSurface(surf);
 }
 
 int main(int argc, char** argv) {
@@ -379,7 +397,7 @@ int main(int argc, char** argv) {
     
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window* window =
-	SDL_CreateWindow("renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, options.width, options.height, 0);
+	SDL_CreateWindow("renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_RESIZABLE);
 
     render(window, output_images, options);
 
