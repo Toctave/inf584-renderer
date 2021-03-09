@@ -44,7 +44,7 @@ private:
     float f0_;
 
 public:
-    MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float f0);
+    MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float ior);
     virtual RGBColor brdf(const Intersect& itx,
                           const Vec3& wi,
                           const Vec3& wo) const;

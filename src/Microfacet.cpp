@@ -2,15 +2,17 @@
 
 #include <cmath>
 
-MicrofacetMaterial::MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float f0)
+MicrofacetMaterial::MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float ior)
     : albedo_(albedo),
       specular_ratio_(specular_ratio),
       roughness_(roughness),
       alpha_(roughness * roughness),
-      alpha2_(alpha_ * alpha_),
-      f0_(f0) {
+      alpha2_(alpha_ * alpha_) {
     k_ = roughness_ + 1.0f;
     k_ = k_ * k_ / 8.0f;
+
+    f0_ = (ior - 1.0f) / (ior + 1.0f);
+    f0_ *= f0_;
 }
 
 // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
@@ -34,6 +36,7 @@ RGBColor MicrofacetMaterial::brdf(const Intersect& itx,
 
     float g = g1wo * g1wi;
 
+
     float wo_dot_h = dot(wo, h);
 
     float fresnel_exponent = (-5.55473f * wo_dot_h - 6.98316f) * wo_dot_h;
@@ -43,6 +46,7 @@ RGBColor MicrofacetMaterial::brdf(const Intersect& itx,
 
     float brdf_val = d * fresnel * g / (4.0f * n_dot_wi * n_dot_wo);
 
+    // return RGBColor(brdf_val);
     return albedo_ / static_cast<float>(M_PI) + RGBColor(brdf_val);
 }
 
