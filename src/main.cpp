@@ -4,6 +4,7 @@
 #include <cassert>
 #include <sstream>
 #include <chrono>
+#include <limits>
 
 #include <SDL2/SDL.h>
 #include <ANN/ANN.h>
@@ -52,7 +53,7 @@ Options parse_options(int argc, char** argv) {
     Options options;
     options.width = 64;
     options.height = 64;
-    options.sample_count = ~0ull;
+    options.sample_count = std::numeric_limits<size_t>::max();
     options.max_bounces = 3;
     options.filter_radius = 1.5f;
     options.output_base = "out";
@@ -350,8 +351,11 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 	std::cout << "sample " << samples_taken << " took "
 		  << t1 - last_time << "s ("
 		  << formatted_time(elapsed) << "s elapsed, "
-		  << average << "s avg, "
-		  << formatted_time(expected_remaining) << "s remaining)\n";
+		  << average << "s avg";
+	if (options.sample_count < std::numeric_limits<size_t>::max()) {
+	    std::cout << ", " << formatted_time(expected_remaining) << "s remaining";
+	}
+	std::cout << ")\n";
 	last_time = t1;
 
 	draw_image(output_images[0].get_image(), SDL_GetWindowSurface(window));

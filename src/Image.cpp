@@ -48,10 +48,12 @@ void RGBFilm::add_sample(const Vec2& pos, RGBColor color) {
     static const float firefly_threshold = 10.0f;
     static const float firefly_threshold_squared = firefly_threshold * firefly_threshold;
 
+    RGBColor sample_color = color;
+    
     // clamp samples carrying too much light
     // this biases the render, but leads to smoother results
-    if (color.norm_squared() > firefly_threshold_squared) {
-	color = firefly_threshold * color.normalized();
+    if (sample_color.norm_squared() > firefly_threshold_squared) {
+	sample_color = firefly_threshold * sample_color.normalized();
     }
     
     size_t colmin = static_cast<size_t>(std::floor(pos[0] + .5f - filter_radius_));
@@ -81,7 +83,7 @@ void RGBFilm::add_sample(const Vec2& pos, RGBColor color) {
 	    Vec2 d = (pos - pixel_center) / filter_radius_;
 	    float weight = mitchell_filter(d) / (filter_radius_ * filter_radius_);
 	    
-	    add_sample(row, col, color, weight);
+	    add_sample(row, col, sample_color, weight);
 	}
     }
 }
