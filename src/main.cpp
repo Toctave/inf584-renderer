@@ -375,10 +375,10 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 	
 	std::cout << "sample " << samples_taken << " took "
 		  << t1 - last_time << "s ("
-		  << formatted_time(elapsed) << "s elapsed, "
+		  << formatted_time(elapsed) << " elapsed, "
 		  << average << "s avg";
 	if (options.sample_count < std::numeric_limits<size_t>::max()) {
-	    std::cout << ", " << formatted_time(expected_remaining) << "s remaining";
+	    std::cout << ", " << formatted_time(expected_remaining) << " remaining";
 	}
 	std::cout << ")\n";
 	last_time = t1;
