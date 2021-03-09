@@ -8,22 +8,13 @@ typedef Vec<size_t, 3> Vec3s;
 class BVHNode;
 
 struct Triangle {
-    const Vec3* positions[3];
-    const Vec3* normals[3];
-
-    Triangle()
-        : positions{nullptr, nullptr, nullptr},
-          normals{nullptr, nullptr, nullptr} {
-    }
+    Vec3 positions[3];
+    Vec3 normals[3];
 };
 
 class TriangleMesh : public Primitive {
 private:
-    std::vector<Vec3> vertex_pos_;
-    std::vector<Vec3> vertex_normal_;
-    
-    std::vector<Vec3s> triangle_pos_indices_;
-    std::vector<Vec3s> triangle_normal_indices_;
+    std::vector<Triangle> triangles_;
     std::vector<float> triangle_areas_;
     std::vector<float> triangle_areas_cumsum_;
     
@@ -32,6 +23,8 @@ private:
     const BVHNode* bvh_;
 
     TriangleMesh& operator=(const TriangleMesh& other);
+    TriangleMesh(const TriangleMesh& other);
+    
     void calculate_vertex_normals();
     void calculate_areas();
     
