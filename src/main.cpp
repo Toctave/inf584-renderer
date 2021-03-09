@@ -245,7 +245,7 @@ Vec2 to_screen_space(Vec2 sample, size_t width, size_t height) {
 
 std::string formatted_time(double seconds) {
     double minutes = std::floor(seconds / 60.0);
-    seconds -= minutes * 60.0;
+    seconds = std::ceil(seconds - minutes * 60.0f);
     
     double hours = std::floor(minutes / 60.0);
     minutes -= hours * 60.0;
