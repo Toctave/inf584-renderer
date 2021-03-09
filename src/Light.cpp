@@ -44,10 +44,15 @@ LightSample AreaLight::sample(const Vec3& point) const {
 
     Ray shadow_ray = Ray::segment(point, on_light);
     shadow_ray.tmax = 1 - EPSILON;
+
+    RGBColor emitted;
+    for (const BRDF* brdf : shape_->material()->brdfs()) {
+	emitted += brdf->emit(on_light, -wi);
+    }
     
     return LightSample(
         shadow_ray,
-        shape_->material()->emit(on_light, -wi),
+        emitted, 
         solid_angle_pdf
     );
 }

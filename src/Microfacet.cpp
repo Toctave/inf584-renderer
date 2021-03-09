@@ -1,10 +1,10 @@
+#include "BRDF.hpp"
 #include "Material.hpp"
 
 #include <cmath>
 
-MicrofacetMaterial::MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float ior)
-    : albedo_(albedo),
-      specular_ratio_(specular_ratio),
+MicrofacetBRDF::MicrofacetBRDF(float specular_ratio, float roughness, float ior)
+    : specular_ratio_(specular_ratio),
       roughness_(roughness),
       alpha_(roughness * roughness),
       alpha2_(alpha_ * alpha_) {
@@ -16,9 +16,9 @@ MicrofacetMaterial::MicrofacetMaterial(const RGBColor& albedo, float specular_ra
 }
 
 // https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-RGBColor MicrofacetMaterial::brdf(const Intersect& itx,
-                                  const Vec3& wi,
-                                  const Vec3& wo) const {
+RGBColor MicrofacetBRDF::f(const Intersect& itx,
+			   const Vec3& wi,
+			   const Vec3& wo) const {
     Vec3 h = (wi + wo).normalized();
 
     float ndoth = dot(itx.normal, h);
@@ -46,10 +46,14 @@ RGBColor MicrofacetMaterial::brdf(const Intersect& itx,
 
     float brdf_val = d * fresnel * g / (4.0f * n_dot_wi * n_dot_wo);
 
-    // return RGBColor(brdf_val);
-    return albedo_ / static_cast<float>(M_PI) + RGBColor(brdf_val);
+    return RGBColor(brdf_val);
 }
 
-SurfaceType MicrofacetMaterial::surface_type() const {
+SurfaceType MicrofacetBRDF::surface_type() const {
     return SurfaceType::SPECULAR;
+}
+
+MicrofacetMaterial::MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float ior) {
+    brdfs_.push_back(new LambertBRDF(albedo));
+    brdfs_.push_back(new MicrofacetBRDF(specular_ratio, roughness, ior));
 }

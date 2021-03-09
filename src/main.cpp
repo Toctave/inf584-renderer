@@ -22,7 +22,7 @@
 #include "Sampling.hpp"
 #include "TriangleMesh.hpp"
 #include "BVH.hpp"
-#include "LightPath.hpp"
+#include "LightTree.hpp"
 #include "stylit/stylit.hpp"
 
 struct Options {
@@ -92,40 +92,10 @@ Options parse_options(int argc, char** argv) {
     return options;
 }
 
-void explicit_shade(LightPath* path,
+void explicit_shade(const std::vector<LightTreeBounce*>& downstream,
                     Intersect& itx,
                     const Scene& scene,
                     bool keep_lights) {
-    Vec3 hover_point = itx.point + EPSILON * itx.normal;
-
-    for (const Light* light : scene.lights()) {
-        LightSample light_sample = light->sample(hover_point);
-        Vec3 wi = light_sample.shadow_ray.d.normalized();
-
-        float u = dot(itx.normal, wi);
-        if (u < 0.0f) {
-            continue;
-        }
-
-        if (scene.ray_intersect(light_sample.shadow_ray)) {
-            continue;
-        }
-
-        RGBColor f = itx.material->brdf(itx,
-                                        wi,
-                                        itx.wo);
-        LightPath* emission_path =
-            new LightPath(light_sample.intensity,
-                          light_sample.shadow_ray.at(1.0f));
-        path->add_tributary(emission_path,
-                            light_sample.pdf,
-                            f,
-                            u);
-    }
-    if (keep_lights) {
-        RGBColor e = itx.material->emit(itx.point, itx.wo);
-        path->set_emission(e);
-    }
 }
 
 bool is_orthonormal_basis(const Vec3& x, const Vec3& y, const Vec3& z) {
@@ -137,16 +107,19 @@ bool is_orthonormal_basis(const Vec3& x, const Vec3& y, const Vec3& z) {
         && (fabs(dot(x, z)) < EPSILON);
 }
 
-LightPath* trace_ray(const Scene& scene,
-                     Ray& ray,
-                     size_t max_bounces = 0,
-                     bool keep_lights = true) {
+std::vector<LightTreeBounce*> trace_ray(const Scene& scene,
+					Ray& ray,
+					size_t max_bounces = 0,
+					bool keep_lights = true) {
+    std::vector<LightTreeBounce*> results;
     Intersect itx;
     if (scene.ray_intersect(ray, itx)) {
-        LightPath* path = new LightPath(itx.material->surface_type(),
-                                        itx.point);
-        explicit_shade(path, itx, scene, keep_lights);
-	
+	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
+	    const BRDF* brdf = itx.material->brdfs()[i];
+	    results.push_back(new LightTreeBounce(brdf->surface_type()));
+	}
+
+	// recursive call :
         if (max_bounces > 0) {
             Vec3 wo = -ray.d;
             Vec3 local_basis_y = cross(wo, itx.normal);
@@ -164,37 +137,72 @@ LightPath* trace_ray(const Scene& scene,
 
             if (pdf == 0.0f) {
                 // skip impossible samples
-                return path;
+                return results;
             }
             
             Vec3 wi = wi_sample[0] * local_basis_x
                 + wi_sample[1] * local_basis_y
                 + wi_sample[2] * itx.normal;
 
+	    float cosine_factor = wi_sample[2];
+	    
             Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
                        wi);
-            
-            RGBColor f = itx.material->brdf(itx,
-                                            wi,
-                                            wo);
 
-            float cosine_factor = wi_sample[2];
-	    
-            LightPath* bounce_path =
-                trace_ray(scene, bounce, max_bounces - 1, false);
+	    for (size_t i = 0; i < results.size(); i++) {
+		RGBColor f = itx.material->brdfs()[i]->f(itx,
+							 wi,
+							 wo);
 
-            if (!bounce_path) {
-                return path;
-            }
+		Ray bounce_copy(bounce); // to avoid changing bounce.tmax
+		std::vector<LightTreeBounce*> bounce_trees =
+		    trace_ray(scene, bounce_copy, max_bounces - 1, false);
 
-            path->add_tributary(bounce_path,
-                                pdf,
-                                f,
-                                cosine_factor);
+		for (LightTree* bounce_tree : bounce_trees) {
+		    results[i]->add_upstream(bounce_tree,
+					     pdf,
+					     f,
+					     cosine_factor);
+		}
+	    }
         }
-        return path;
+
+	// explicit light sampling :
+	{
+	    Vec3 hover_point = itx.point + EPSILON * itx.normal;
+
+	    for (const Light* light : scene.lights()) {
+		LightSample light_sample = light->sample(hover_point);
+		Vec3 wi = light_sample.shadow_ray.d.normalized();
+
+		float u = dot(itx.normal, wi);
+		if (u < 0.0f) {
+		    continue;
+		}
+
+		if (scene.ray_intersect(light_sample.shadow_ray)) {
+		    continue;
+		}
+
+		for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
+		    RGBColor f = itx.material->brdfs()[i]->f(itx,
+							     wi,
+							     itx.wo);
+		    results[i]->add_upstream(new LightTreeSource(light_sample.intensity),
+					     light_sample.pdf,
+					     f,
+					     u);
+		}
+	    }
+	    if (keep_lights) {
+		for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
+		    RGBColor e = itx.material->brdfs()[i]->emit(itx.point, itx.wo);
+		    results[i]->add_upstream(new LightTreeSource(e));
+		}
+	    }
+	}
     }
-    return nullptr;
+    return results;
 } 
 
 float radians(float deg) {
@@ -220,14 +228,16 @@ double now() {
 }
 
 Vec2 get_image_sample(size_t row, size_t col, size_t width, size_t height, size_t sample_idx) {
+    Vec2 random_offset = sample_unit_square();
+    return Vec2(static_cast<float>(col), static_cast<float>(row)) + random_offset;
+    
     static const size_t grid_size = 4;
     static const float inv_grid_cell_width = 1.0f / grid_size;
-
+    
     size_t i = sample_idx % (grid_size * grid_size);
     size_t gx = i % grid_size;
     size_t gy = i / grid_size;
     
-    Vec2 random_offset = sample_unit_square();
 
     Vec2 jittered_offset(
 	(gx + random_offset[0]) * inv_grid_cell_width,
@@ -290,10 +300,11 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
     LambertMaterial white(RGBColor::gray(.9f));
     LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
+    LambertMaterial green(RGBColor(.7f, 1.0f, .7f));
     
     MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, .7f), 0.5f, .2f, .05f);
     
-    Emission emission(20.0f * RGBColor(1.0f, 1.0f, 1.0f));
+    Emission emission(10.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
     TriangleMesh teapot_mesh("dragon.obj");
     TriangleMesh box_mesh("box.obj");
@@ -312,7 +323,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_sphere, &emission);
 
-    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(135.0f)) * Transform::scale(1.0f));
+    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
 
     sc.add_shape(&box);
     sc.add_shape(&left_wall);
@@ -341,20 +352,18 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 		
                 Ray camera_ray = cam.get_ray(screen_sample);
 
-                LightPath* path =
-                    trace_ray(sc, camera_ray, options.max_bounces);
-                
+		LightTreeBounce* eye_tree = new LightTreeBounce(SurfaceType::EYE);
+		for (LightTreeBounce* tree : trace_ray(sc, camera_ray, options.max_bounces)) {
+		    eye_tree->add_upstream(tree);
+		}
+
 		for (size_t i = 0; i < options.light_paths.size(); i++) {
 		    RGBColor radiance;
-		    if (path) {
-			radiance = path->radiance_channel(options.light_paths[i]);
-		    }
+		    radiance += eye_tree->LightTree::radiance_channel(options.light_paths[i]);
 		    output_images[i].add_sample(image_sample, radiance);
 		}
-		
-                if (path) {
-                    delete path;
-                }
+
+		delete eye_tree;
             }
         }
 	samples_taken++;
