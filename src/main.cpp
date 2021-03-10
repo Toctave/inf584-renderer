@@ -5,6 +5,7 @@
 #include <sstream>
 #include <chrono>
 #include <limits>
+#include <iomanip>
 
 #include <SDL2/SDL.h>
 #include <ANN/ANN.h>
@@ -39,6 +40,17 @@ struct Options {
     std::vector<LightPathExpression> light_paths;
 };
 
+std::string timestamp()
+{
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_t = std::chrono::system_clock::to_time_t(now);
+
+    std::stringstream sstream;
+    sstream << std::put_time(std::localtime(&now_t), "%Y-%m-%d-%H.%M");
+    
+    return sstream.str();
+}
+
 template<typename T>
 T parse(const std::string& s) {
     T v;
@@ -46,6 +58,7 @@ T parse(const std::string& s) {
     sstream >> v;
     return v;
 }
+
 
 void print_usage_string() {
     std::cerr << "Usage : ./renderer -w width -h height -s sample_count [light paths...]\n";
@@ -58,7 +71,7 @@ Options parse_options(int argc, char** argv) {
     options.sample_count = std::numeric_limits<size_t>::max();
     options.max_bounces = 3;
     options.filter_radius = 1.5f;
-    options.output_base = "out";
+    options.output_base = "out" + timestamp();
     options.seed = time(NULL);
 
     int i = 1;
@@ -103,10 +116,7 @@ void explicit_shade(const std::vector<LightTreeBounce*>& downstream,
                     bool keep_lights) {
 }
 
-std::vector<LightTreeBounce*> trace_ray(const Scene& scene,
-					Ray& ray,
-					size_t max_bounces = 0,
-					bool keep_lights = true) {
+std::vector<LightTreeBounce*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0) {
     std::vector<LightTreeBounce*> results;
     Intersect itx;
     if (scene.ray_intersect(ray, itx)) {
@@ -141,7 +151,72 @@ std::vector<LightTreeBounce*> trace_ray(const Scene& scene,
 
 		Ray bounce_copy(bounce); // to avoid changing bounce.tmax
 		std::vector<LightTreeBounce*> bounce_trees =
-		    trace_ray(scene, bounce_copy, max_bounces - 1, false);
+		    trace_ray(scene, bounce_copy, max_bounces - 1);
+
+		for (LightTree* bounce_tree : bounce_trees) {
+		    results[i]->add_upstream(bounce_tree,
+					     pdf,
+					     f,
+					     cosine_factor);
+		}
+	    }
+        }
+
+	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
+	    RGBColor e = itx.material->brdfs()[i]->emit(itx.point, itx.wo);
+	    results[i]->add_upstream(new LightTreeSource(e));
+	}
+    }
+    return results;
+}
+
+std::vector<LightTreeBounce*> trace_ray_explicit(const Scene& scene,
+						 Ray& ray,
+						 size_t max_bounces = 0,
+						 bool keep_lights = true) {
+    std::vector<LightTreeBounce*> results;
+    Intersect itx;
+    if (scene.ray_intersect(ray, itx)) {
+	itx.setup_local_basis();
+	
+	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
+	    const BRDF* brdf = itx.material->brdfs()[i];
+	    results.push_back(new LightTreeBounce(brdf->surface_type()));
+	}
+
+	// light emitted by the surface
+	if (keep_lights) {
+	    for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
+		RGBColor e = itx.material->brdfs()[i]->emit(itx.point, itx.wo);
+		results[i]->add_upstream(new LightTreeSource(e));
+	    }
+	}
+
+	// recursive call :
+        if (max_bounces > 0) {
+	    for (size_t i = 0; i < results.size(); i++) {
+		const BRDF* brdf = itx.material->brdfs()[i];
+		
+		float pdf;
+		Vec3 wi = brdf->sample_wi(itx, itx.wo, &pdf);
+		
+		if (pdf == 0.0f) {
+		    // skip impossible samples
+		    continue;
+		}
+		
+		float cosine_factor = dot(wi, itx.normal);
+	    
+		Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
+			   wi);
+
+		RGBColor f = itx.material->brdfs()[i]->f(itx,
+							 wi,
+							 itx.wo);
+
+		Ray bounce_copy(bounce); // to avoid changing bounce.tmax
+		std::vector<LightTreeBounce*> bounce_trees =
+		    trace_ray_explicit(scene, bounce_copy, max_bounces - 1, false);
 
 		for (LightTree* bounce_tree : bounce_trees) {
 		    results[i]->add_upstream(bounce_tree,
@@ -157,33 +232,32 @@ std::vector<LightTreeBounce*> trace_ray(const Scene& scene,
 	    Vec3 hover_point = itx.point + EPSILON * itx.normal;
 
 	    for (const Light* light : scene.lights()) {
-		LightSample light_sample = light->sample(hover_point);
-		Vec3 wi = light_sample.shadow_ray.d.normalized();
-
-		float u = dot(itx.normal, wi);
-		if (u < 0.0f) {
+		if (light->is_shape(itx.shape)) {
+		    // don't double dip
 		    continue;
 		}
+		
+	    	LightSample light_sample = light->sample(hover_point);
+	    	Vec3 wi = light_sample.shadow_ray.d.normalized();
 
-		if (scene.ray_intersect(light_sample.shadow_ray)) {
-		    continue;
-		}
+	    	float u = dot(itx.normal, wi);
+	    	if (u < 0.0f) {
+	    	    continue;
+	    	}
 
-		for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
-		    RGBColor f = itx.material->brdfs()[i]->f(itx,
-							     wi,
-							     itx.wo);
-		    results[i]->add_upstream(new LightTreeSource(light_sample.intensity),
-					     light_sample.pdf,
-					     f,
-					     u);
-		}
-	    }
-	    if (keep_lights) {
-		for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
-		    RGBColor e = itx.material->brdfs()[i]->emit(itx.point, itx.wo);
-		    results[i]->add_upstream(new LightTreeSource(e));
-		}
+	    	if (scene.ray_intersect(light_sample.shadow_ray)) {
+	    	    continue;
+	    	}
+
+	    	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
+	    	    RGBColor f = itx.material->brdfs()[i]->f(itx,
+	    						     wi,
+	    						     itx.wo);
+	    	    results[i]->add_upstream(new LightTreeSource(light_sample.intensity),
+	    				     light_sample.pdf,
+	    				     f,
+	    				     u);
+	    	}
 	    }
 	}
     }
@@ -281,14 +355,14 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
                fov,
                static_cast<float>(options.width) / options.height);
 
-    LambertMaterial red(RGBColor(.8f, .3f, .2f));
+    LambertMaterial red(RGBColor(1.0f, .0f, .0f));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
     LambertMaterial white(RGBColor::gray(.9f));
     LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
     LambertMaterial green(RGBColor(.7f, 1.0f, .7f));
     
-    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, .7f), .05f, .05f);
-    MicrofacetMaterial glossy_red(RGBColor(1.0f, .0f, .0f), .05f, .05f);
+    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, 1.0f), .05f, .05f);
+    MicrofacetMaterial glossy_red(RGBColor(.8f, .0f, .0f), .05f, .05f);
     
     Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
@@ -305,14 +379,14 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     Sphere sphere(Vec3({0.0f, 0.0f, 1.0f}), 1.0f);
 
     Shape teapot(&teapot_mesh, &glossy);
-    Shape red_sphere(&sphere, &red);
+    Shape red_sphere(&sphere, &glossy_red);
     Shape plane(&plane_mesh, &white);
     Shape box(&box_mesh, &white);
     Shape left_wall(&left_wall_mesh, &yellow);
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_mesh, &emission);
 
-    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
+    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(1.0f));
 
     // sc.add_shape(&box);
     // sc.add_shape(&left_wall);
@@ -320,8 +394,8 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 
     sc.add_shape(&plane);
     
-    // sc.add_shape(&teapot);
-    sc.add_shape(&red_sphere);
+    sc.add_shape(&teapot);
+    // sc.add_shape(&red_sphere);
     
     sc.add_shape(&light_shape);
 
@@ -349,8 +423,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 		}
 
 		for (size_t i = 0; i < options.light_paths.size(); i++) {
-		    RGBColor radiance;
-		    radiance += eye_tree->LightTree::radiance_channel(options.light_paths[i]);
+		    RGBColor radiance = eye_tree->LightTree::radiance_channel(options.light_paths[i]);
 		    output_images[i].add_sample(image_sample, radiance);
 		}
 
@@ -403,7 +476,7 @@ int main(int argc, char** argv) {
 
     for (size_t i = 0; i < options.light_paths.size(); i++) {
 	std::stringstream oss;
-	oss << options.output_base << "_" << options.light_paths[i] << ".png";
+	oss << "output/" << options.output_base << "_" << options.light_paths[i] << ".png";
 
 	std::cout << "Writing " << oss.str() << " ...\n";
 	

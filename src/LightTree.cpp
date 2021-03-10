@@ -16,6 +16,9 @@ RGBColor LightTreeBounce::radiance() const {
     for (size_t i = 0; i < upstream_.size(); i++) {
 	out += brdfs_[i] * angle_cos_[i] * upstream_[i]->radiance() / pdfs_[i];
     }
+    if (upstream_.size() > 0) {
+	out /= upstream_.size();
+    }
 
     return out;
 }
@@ -51,6 +54,9 @@ RGBColor LightTreeBounce::radiance_channel(const LightPathExpression& channel, i
 		   + upstream_[i]->radiance_channel(channel, offset))
 		   / pdfs_[i];
 	}
+	if (upstream_.size() > 0) {
+	    out /= upstream_.size();
+	}
 
 	return out;
     }
@@ -59,6 +65,9 @@ RGBColor LightTreeBounce::radiance_channel(const LightPathExpression& channel, i
 	RGBColor out;
 	for (size_t i = 0; i < upstream_.size(); i++) {
 	    out += brdfs_[i] * angle_cos_[i] * upstream_[i]->radiance_channel(channel, offset - 1) / pdfs_[i];
+	}
+	if (upstream_.size() > 0) {
+	    out /= upstream_.size();
 	}
 
 	return out;
