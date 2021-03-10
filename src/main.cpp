@@ -110,21 +110,15 @@ Options parse_options(int argc, char** argv) {
     return options;
 }
 
-void explicit_shade(const std::vector<LightTreeBounce*>& downstream,
-                    Intersect& itx,
-                    const Scene& scene,
-                    bool keep_lights) {
-}
-
-std::vector<LightTreeBounce*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0) {
-    std::vector<LightTreeBounce*> results;
+std::vector<LightTree*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounces = 0) {
+    std::vector<LightTree*> results;
     Intersect itx;
     if (scene.ray_intersect(ray, itx)) {
 	itx.setup_local_basis();
 	
 	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
 	    const BRDF* brdf = itx.material->brdfs()[i];
-	    results.push_back(new LightTreeBounce(brdf->surface_type()));
+	    results.push_back(new LightTree(brdf->surface_type(), brdf->emit(itx.point, itx.wo)));
 	}
 
 	// recursive call :
@@ -150,7 +144,7 @@ std::vector<LightTreeBounce*> trace_ray(const Scene& scene, Ray& ray, size_t max
 							 itx.wo);
 
 		Ray bounce_copy(bounce); // to avoid changing bounce.tmax
-		std::vector<LightTreeBounce*> bounce_trees =
+		std::vector<LightTree*> bounce_trees =
 		    trace_ray(scene, bounce_copy, max_bounces - 1);
 
 		for (LightTree* bounce_tree : bounce_trees) {
@@ -161,108 +155,9 @@ std::vector<LightTreeBounce*> trace_ray(const Scene& scene, Ray& ray, size_t max
 		}
 	    }
         }
-
-	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
-	    RGBColor e = itx.material->brdfs()[i]->emit(itx.point, itx.wo);
-	    results[i]->add_upstream(new LightTreeSource(e));
-	}
     }
     return results;
 }
-
-std::vector<LightTreeBounce*> trace_ray_explicit(const Scene& scene,
-						 Ray& ray,
-						 size_t max_bounces = 0,
-						 bool keep_lights = true) {
-    std::vector<LightTreeBounce*> results;
-    Intersect itx;
-    if (scene.ray_intersect(ray, itx)) {
-	itx.setup_local_basis();
-	
-	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
-	    const BRDF* brdf = itx.material->brdfs()[i];
-	    results.push_back(new LightTreeBounce(brdf->surface_type()));
-	}
-
-	// light emitted by the surface
-	if (keep_lights) {
-	    for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
-		RGBColor e = itx.material->brdfs()[i]->emit(itx.point, itx.wo);
-		results[i]->add_upstream(new LightTreeSource(e));
-	    }
-	}
-
-	// recursive call :
-        if (max_bounces > 0) {
-	    for (size_t i = 0; i < results.size(); i++) {
-		const BRDF* brdf = itx.material->brdfs()[i];
-		
-		float pdf;
-		Vec3 wi = brdf->sample_wi(itx, itx.wo, &pdf);
-		
-		if (pdf == 0.0f) {
-		    // skip impossible samples
-		    continue;
-		}
-		
-		float cosine_factor = dot(wi, itx.normal);
-	    
-		Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
-			   wi);
-
-		RGBColor f = itx.material->brdfs()[i]->f(itx,
-							 wi,
-							 itx.wo);
-
-		Ray bounce_copy(bounce); // to avoid changing bounce.tmax
-		std::vector<LightTreeBounce*> bounce_trees =
-		    trace_ray_explicit(scene, bounce_copy, max_bounces - 1, false);
-
-		for (LightTree* bounce_tree : bounce_trees) {
-		    results[i]->add_upstream(bounce_tree,
-					     pdf,
-					     f,
-					     cosine_factor);
-		}
-	    }
-        }
-
-	// explicit light sampling :
-	{
-	    Vec3 hover_point = itx.point + EPSILON * itx.normal;
-
-	    for (const Light* light : scene.lights()) {
-		if (light->is_shape(itx.shape)) {
-		    // don't double dip
-		    continue;
-		}
-		
-	    	LightSample light_sample = light->sample(hover_point);
-	    	Vec3 wi = light_sample.shadow_ray.d.normalized();
-
-	    	float u = dot(itx.normal, wi);
-	    	if (u < 0.0f) {
-	    	    continue;
-	    	}
-
-	    	if (scene.ray_intersect(light_sample.shadow_ray)) {
-	    	    continue;
-	    	}
-
-	    	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
-	    	    RGBColor f = itx.material->brdfs()[i]->f(itx,
-	    						     wi,
-	    						     itx.wo);
-	    	    results[i]->add_upstream(new LightTreeSource(light_sample.intensity),
-	    				     light_sample.pdf,
-	    				     f,
-	    				     u);
-	    	}
-	    }
-	}
-    }
-    return results;
-} 
 
 float radians(float deg) {
     return M_PI * deg / 180.0f;
@@ -341,14 +236,17 @@ void blit_fit(SDL_Surface* src, SDL_Surface* dst) {
     SDL_BlitScaled(src, NULL, dst, &dst_rect);
 }
 
-void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Options& options) {
+struct SyncData {
+    bool quit;
+    SDL_mutex* mtx;
+};
+
+void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& options) {
     Scene sc;
-    SDL_Surface* surf = SDL_CreateRGBSurface(0, options.width, options.height, 32, 0, 0, 0, 0);
 
     initialize_random_system(options.seed);
 
     float fov = radians(45.0f);
-    float half_fov = .5f * fov;
     Camera cam(Vec3(0.0f, -7.0f, 3.0f),
                Vec3(0.0f, 0.0f, 1.0f),
                Vec3(0.0f, 0.0f, 1.0f),
@@ -378,7 +276,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     
     Sphere sphere(Vec3({0.0f, 0.0f, 1.0f}), 1.0f);
 
-    Shape teapot(&teapot_mesh, &glossy);
+    Shape teapot(&teapot_mesh, &glossy_red);
     Shape red_sphere(&sphere, &glossy_red);
     Shape plane(&plane_mesh, &white);
     Shape box(&box_mesh, &white);
@@ -386,7 +284,7 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     Shape right_wall(&right_wall_mesh, &blue);
     Shape light_shape(&light_mesh, &emission);
 
-    teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(1.0f));
+    teapot.set_transform(Transform::translate(.5f, 0.0f, 0.0f) * Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(1.0f));
 
     // sc.add_shape(&box);
     // sc.add_shape(&left_wall);
@@ -417,8 +315,8 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 		
                 Ray camera_ray = cam.get_ray(screen_sample);
 
-		LightTreeBounce* eye_tree = new LightTreeBounce(SurfaceType::EYE);
-		for (LightTreeBounce* tree : trace_ray(sc, camera_ray, options.max_bounces)) {
+		LightTree* eye_tree = new LightTree(SurfaceType::EYE, RGBColor());
+		for (LightTree* tree : trace_ray(sc, camera_ray, options.max_bounces)) {
 		    eye_tree->add_upstream(tree);
 		}
 
@@ -447,18 +345,80 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
 	std::cout << ")\n";
 	last_time = t1;
 
-	draw_image(output_images[0].get_image(), surf);
-	blit_fit(surf, SDL_GetWindowSurface(window));
+	SDL_LockMutex(sync.mtx);
+	if (sync.quit) {
+	    need_quit = true;
+	}
+	SDL_UnlockMutex(sync.mtx);
+    }
+}
+
+struct RenderThreadData {
+    SyncData& sync;
+    std::vector<RGBFilm>& output_images;
+    const Options& options;
+};
+
+int render_thread(void* data) {
+    RenderThreadData* rtd = static_cast<RenderThreadData*>(data);
+
+    render(rtd->sync, rtd->output_images, rtd->options);
+
+    return 0;
+}
+
+void update_title(SDL_Window* window, const Options& options, size_t current_img) {
+    std::stringstream title;
+    title << "renderer - " << options.light_paths[current_img];
+
+    SDL_SetWindowTitle(window, title.str().c_str());
+}
+
+void display(SyncData& sync, const std::vector<RGBFilm>& output_images, const Options& options) {
+    SDL_Window* window =
+	SDL_CreateWindow("renderer",
+			 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+			 640, 480,
+			 SDL_WINDOW_RESIZABLE);
+    
+    bool quit = false;
+    size_t current_img = 0;
+    SDL_Surface* surf = SDL_CreateRGBSurface(0, options.width, options.height, 32, 0, 0, 0, 0);
+    
+    update_title(window, options, current_img);
+    
+    while (!quit) {
+	SDL_Surface* winsurf = SDL_GetWindowSurface(window);
+	draw_image(output_images[current_img].get_image(), surf);
+	blit_fit(surf, winsurf);
 	
-	SDL_UpdateWindowSurface(window);
 	SDL_Event evt;
 	while (SDL_PollEvent(&evt)) {
 	    if (evt.type == SDL_QUIT) {
-		need_quit = true;
+		SDL_LockMutex(sync.mtx);
+		sync.quit = true;
+		SDL_UnlockMutex(sync.mtx);
+
+		quit = true;
+	    }
+	    if (evt.type == SDL_KEYDOWN)
+		switch (evt.key.keysym.sym) {
+		case SDLK_RIGHT:
+		    current_img = (current_img + 1) % output_images.size();
+		    update_title(window, options, current_img);
+		    break;
+		case SDLK_LEFT:
+		    current_img = (current_img - 1) % output_images.size();
+		    update_title(window, options, current_img);
+		    break;
 	    }
 	}
+
+	SDL_UpdateWindowSurface(window);
     }
+    
     SDL_FreeSurface(surf);
+    SDL_DestroyWindow(window);
 }
 
 int main(int argc, char** argv) {
@@ -469,10 +429,15 @@ int main(int argc, char** argv) {
     }
     
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_Window* window =
-	SDL_CreateWindow("renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_RESIZABLE);
 
-    render(window, output_images, options);
+    SyncData sync{ false, SDL_CreateMutex() };
+    
+    RenderThreadData data{sync, output_images, options};
+    SDL_Thread* thread = SDL_CreateThread(render_thread, "render", &data);
+
+    display(sync, output_images, options);
+
+    SDL_WaitThread(thread, nullptr);
 
     for (size_t i = 0; i < options.light_paths.size(); i++) {
 	std::stringstream oss;
@@ -486,7 +451,7 @@ int main(int argc, char** argv) {
 	write_png(to_rgb8(colors), output_file);
     }
 
-    SDL_DestroyWindow(window);
+    SDL_DestroyMutex(sync.mtx);
     SDL_Quit();
     return 0;
 }
