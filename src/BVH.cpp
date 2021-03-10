@@ -33,7 +33,7 @@ BVHNode::BVHNode(const std::vector<size_t>::iterator& indices_begin,
     : indices_(indices_begin, indices_end), is_leaf_(true) {
     for (size_t idx : indices_) {
         for (size_t i = 0; i < 3; i++) {
-            box_.include_point(*mesh.triangle(idx).positions[i]);
+            box_.include_point(mesh.triangle(idx).positions[i]);
         }
     }
     box_.widen(1.0e-6f);
@@ -102,7 +102,7 @@ BVHNode BVHNode::from_mesh(const TriangleMesh& mesh) {
     for (size_t i = 0; i < mesh.triangle_count(); i++) {
         Vec3 centroid;
         for (size_t j = 0; j < 3; j++) {
-            centroid += *mesh.triangle(i).positions[j];
+            centroid += mesh.triangle(i).positions[j];
         }
         centroid /= 3.0f;
         centroids.push_back(centroid);

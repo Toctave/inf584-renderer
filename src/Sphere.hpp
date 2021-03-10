@@ -15,4 +15,5 @@ public:
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const override;
     virtual Vec3 sample(float& pdf) const override;
     virtual void print() const override;
+    virtual float area() const override;
 };

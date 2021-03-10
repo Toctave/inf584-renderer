@@ -15,9 +15,16 @@ LightSample PointLight::sample(const Vec3& point) const {
     );
 }
 
+bool PointLight::is_shape(const Shape* shape) const {
+    return false;
+}
 
 AreaLight::AreaLight(const Shape* shape)
     : shape_(shape) {
+}
+
+bool AreaLight::is_shape(const Shape* shape) const {
+    return shape == shape_;
 }
 
 LightSample AreaLight::sample(const Vec3& point) const {
@@ -40,14 +47,19 @@ LightSample AreaLight::sample(const Vec3& point) const {
 
     Vec3 wi = (on_light - point).normalized();
     float solid_angle_pdf = pdf * (on_light - point).norm_squared()
-        / fabs(dot(itx.normal, -wi));
+        / fabs(dot(itx.normal, wi));
 
     Ray shadow_ray = Ray::segment(point, on_light);
-    shadow_ray.tmax = 1 - EPSILON;
+    shadow_ray.tmax = 1.0f;
+
+    RGBColor emitted;
+    for (const BRDF* brdf : shape_->material()->brdfs()) {
+	emitted += brdf->emit(on_light, -wi);
+    }
     
     return LightSample(
         shadow_ray,
-        shape_->material()->emit(on_light, -wi),
+        emitted, 
         solid_angle_pdf
     );
 }

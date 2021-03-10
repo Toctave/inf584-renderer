@@ -17,6 +17,7 @@ struct LightSample {
 class Light {
 public:
     virtual LightSample sample(const Vec3& point) const = 0;
+    virtual bool is_shape(const Shape* shape) const = 0;
 };
 
 class PointLight : public Light {
@@ -28,6 +29,7 @@ public:
     PointLight(const Vec3& position, const RGBColor& color, float intensity = 1.0f);
 
     virtual LightSample sample(const Vec3& point) const;
+    virtual bool is_shape(const Shape* shape) const;
 };
 
 class AreaLight : public Light {
@@ -37,4 +39,5 @@ private:
 public:
     AreaLight(const Shape* shape);
     virtual LightSample sample(const Vec3& point) const;
+    virtual bool is_shape(const Shape* shape) const;
 };

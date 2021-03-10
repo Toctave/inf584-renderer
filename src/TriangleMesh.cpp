@@ -6,15 +6,15 @@
 #include "tiny_obj_loader.hpp"
 
 bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray) {
-    Vec3 edge1 = *triangle.positions[1] - *triangle.positions[0];
-    Vec3 edge2 = *triangle.positions[2] - *triangle.positions[0];
+    Vec3 edge1 = triangle.positions[1] - triangle.positions[0];
+    Vec3 edge2 = triangle.positions[2] - triangle.positions[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
     if (a == 0.0f)
         return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
-    Vec3 s = ray.o - *triangle.positions[0];
+    Vec3 s = ray.o - triangle.positions[0];
     float u = f * dot(s, h);
     if (u < 0.0f || u > 1.0f)
         return false;
@@ -33,15 +33,15 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray) {
 }
 
 bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect& intersect) {
-    Vec3 edge1 = *triangle.positions[1] - *triangle.positions[0];
-    Vec3 edge2 = *triangle.positions[2] - *triangle.positions[0];
+    Vec3 edge1 = triangle.positions[1] - triangle.positions[0];
+    Vec3 edge2 = triangle.positions[2] - triangle.positions[0];
     Vec3 h = cross(ray.d, edge2);
     float a = dot(edge1, h);
     if (a == 0.0f)
         return false;    // ray parallel to the triangle
 
     float f = 1.0f/a;
-    Vec3 s = ray.o - *triangle.positions[0];
+    Vec3 s = ray.o - triangle.positions[0];
     float u = f * dot(s, h);
     if (u < 0.0f || u > 1.0f)
         return false;
@@ -55,9 +55,9 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
     if (t > 0.0f && t < ray.tmax) {
         intersect.t = t;
         intersect.normal =
-            (u * (*triangle.normals[1])
-             + v * (*triangle.normals[2])
-             + (1.0f - u - v) * (*triangle.normals[0])).normalized();
+            (u * (triangle.normals[1])
+             + v * (triangle.normals[2])
+             + (1.0f - u - v) * (triangle.normals[0])).normalized();
         return true;
     } else {
         return false;
@@ -71,8 +71,8 @@ void TriangleMesh::calculate_areas() {
 
     for (size_t i = 0; i < triangle_count(); i++) {
 	Triangle tri = triangle(i);
-	Vec3 e1 = *(tri.positions[1]) - *(tri.positions[0]);
-	Vec3 e2 = *(tri.positions[2]) - *(tri.positions[0]);
+	Vec3 e1 = tri.positions[1] - tri.positions[0];
+	Vec3 e2 = tri.positions[2] - tri.positions[0];
 
 	float area = cross(e1, e2).norm() / 2.0f;
 	triangle_areas_[i] = area;
@@ -82,25 +82,12 @@ void TriangleMesh::calculate_areas() {
 }
 
 void TriangleMesh::calculate_vertex_normals() {
-    vertex_normal_.resize(vertex_pos_.size());
-    for (Vec3& normal : vertex_normal_) {
-        normal = Vec3();
-    }
+    // TODO
+}
 
-    for (const Vec3s& tposi : triangle_pos_indices_) {
-        Vec3 edge1 = vertex_pos_[tposi[1]] - vertex_pos_[tposi[0]];
-        Vec3 edge2 = vertex_pos_[tposi[2]] - vertex_pos_[tposi[0]];
-        Vec3 face_normal = cross(edge1, edge2); // weighted by the triangle area
-        for (size_t j = 0; j < 3; j++) {
-            vertex_normal_[tposi[j]] += face_normal;
-        }
-    }
-
-    for (Vec3& normal : vertex_normal_) {
-        normal.normalize();
-    }
-
-    triangle_normal_indices_ = triangle_pos_indices_;
+static inline Vec3 get_v3(const std::vector<float>& v, int idx) {
+    int ofs = idx * 3;
+    return Vec3(v[ofs], v[ofs + 1], v[ofs + 2]);
 }
 
 TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
@@ -129,52 +116,27 @@ TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
          f < shape.mesh.num_face_vertices.size();
          f++) {
         int fv = shape.mesh.num_face_vertices[f];
-        assert(fv == 3);
 
         // triangulate face as a fan
         for (int second = 1; second + 1 < fv; second++) {
             int third = second + 1;
-            Vec3s tpos({
-                    static_cast<size_t>(shape.mesh.indices[index_offset].vertex_index),
-                    static_cast<size_t>(shape.mesh.indices[index_offset + second].vertex_index),
-                    static_cast<size_t>(shape.mesh.indices[index_offset + third].vertex_index)
-                });
-            triangle_pos_indices_.push_back(tpos);
-        
-            Vec3s tnorm({
-                    static_cast<size_t>(shape.mesh.indices[index_offset].normal_index),
-                    static_cast<size_t>(shape.mesh.indices[index_offset + second].normal_index),
-                    static_cast<size_t>(shape.mesh.indices[index_offset + third].normal_index)
-                });
-            triangle_normal_indices_.push_back(tnorm);
+	    tinyobj::index_t id1 = shape.mesh.indices[index_offset];
+	    tinyobj::index_t id2 = shape.mesh.indices[index_offset + second];
+	    tinyobj::index_t id3 = shape.mesh.indices[index_offset + third];
+	    
+	    Triangle t;
+	    t.positions[0] = get_v3(attrib.vertices, id1.vertex_index);
+	    t.positions[1] = get_v3(attrib.vertices, id2.vertex_index);
+	    t.positions[2] = get_v3(attrib.vertices, id3.vertex_index);
+	    
+	    t.normals[0] = get_v3(attrib.normals, id1.normal_index);
+	    t.normals[1] = get_v3(attrib.normals, id2.normal_index);
+	    t.normals[2] = get_v3(attrib.normals, id3.normal_index);
+
+	    triangles_.push_back(t);
         }
         
         index_offset += fv;
-    }
-
-    assert(attrib.vertices.size() % 3 == 0);
-    vertex_pos_.reserve(attrib.vertices.size() / 3);
-    for (size_t v = 0; v < attrib.vertices.size() / 3; v++) {
-        vertex_pos_.push_back(Vec3({
-                attrib.vertices[v * 3],
-                attrib.vertices[v * 3 + 1],
-                attrib.vertices[v * 3 + 2]
-            }));
-    }
-
-    if (attrib.normals.size() == 0) {
-        std::cout << "Computing vertex normals\n";
-        calculate_vertex_normals();
-    } else {
-        assert(attrib.normals.size() % 3 == 0);
-        vertex_normal_.reserve(attrib.normals.size() / 3);
-        for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
-            vertex_normal_.push_back(Vec3({
-                        attrib.normals[v * 3],
-                        attrib.normals[v * 3 + 1],
-                        attrib.normals[v * 3 + 2]
-                    }));
-        }
     }
 
     calculate_areas();
@@ -187,10 +149,10 @@ TriangleMesh::~TriangleMesh() {
 }
 
 TriangleMesh::TriangleMesh(TriangleMesh&& other)
-    : vertex_pos_(other.vertex_pos_),
-      vertex_normal_(other.vertex_normal_),
-      triangle_pos_indices_(other.triangle_pos_indices_),
-      triangle_normal_indices_(other.triangle_normal_indices_),
+    : triangles_(other.triangles_),
+      triangle_areas_(other.triangle_areas_),
+      triangle_areas_cumsum_(other.triangle_areas_cumsum_),
+      total_area_(other.total_area_),
       bvh_(other.bvh_) {
 }
 
@@ -276,22 +238,19 @@ Vec3 TriangleMesh::sample(float& pdf) const {
 
     Triangle tri = triangle(tri_index);
 
-    return (1.0f - u - v) * (*tri.positions[0])
-	+ u * (*tri.positions[1])
-	+ v * (*tri.positions[2]);
+    return (1.0f - u - v) * tri.positions[0]
+	+ u * tri.positions[1]
+	+ v * tri.positions[2];
 }
 
 size_t TriangleMesh::triangle_count() const {
-    return triangle_pos_indices_.size();
+    return triangles_.size();
 }
 
-Triangle TriangleMesh::triangle(size_t i) const {
-    Triangle t;
+const Triangle& TriangleMesh::triangle(size_t i) const {
+    return triangles_[i];
+}
 
-    for (size_t j = 0; j < 3; j++) {
-        t.positions[j] = &vertex_pos_[triangle_pos_indices_[i][j]];
-        t.normals[j] = &vertex_normal_[triangle_normal_indices_[i][j]];
-    }
-
-    return t;
+float TriangleMesh::area() const {
+    return total_area_;
 }

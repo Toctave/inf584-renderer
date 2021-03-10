@@ -45,7 +45,7 @@ void RGBFilm::add_sample(size_t row, size_t col, const RGBColor& color, float we
 }
 
 void RGBFilm::add_sample(const Vec2& pos, RGBColor color) {
-    static const float firefly_threshold = 10.0f;
+    static const float firefly_threshold = 300.0f;
     static const float firefly_threshold_squared = firefly_threshold * firefly_threshold;
 
     RGBColor sample_color = color;
@@ -62,18 +62,18 @@ void RGBFilm::add_sample(const Vec2& pos, RGBColor color) {
     size_t rowmin = static_cast<size_t>(std::floor(pos[1] + .5f - filter_radius_));
     size_t rowmax = static_cast<size_t>(std::ceil(pos[1] - 1.5f + filter_radius_));
 
-    if (colmin >= height()) {
-	colmin = 0;
+    if (colmin >= width()) {
+    	colmin = 0;
     }
-    if (colmax >= height()) {
-	colmax = height() - 1;
+    if (colmax >= width()) {
+    	colmax = width() - 1;
     }
     
-    if (rowmin >= width()) {
-	rowmin = 0;
+    if (rowmin >= height()) {
+    	rowmin = 0;
     }
-    if (rowmax >= width()) {
-	rowmax = width() - 1;
+    if (rowmax >= height()) {
+    	rowmax = height() - 1;
     }
     
     for (size_t row = rowmin; row <= rowmax; row++) {

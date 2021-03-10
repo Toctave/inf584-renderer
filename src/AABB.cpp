@@ -21,22 +21,22 @@ const Vec3& AABB::max() const {
 bool AABB::ray_intersect(const Ray& ray) const {
     float tmin = 0.0f;
     float tmax = ray.tmax;
-	for (int a = 0; a < 3; ++a) {
-		float invD = 1.0f / ray.d[a];
-		float t0 = (min_[a] - ray.o[a]) * invD;
-		float t1 = (max_[a] - ray.o[a]) * invD;
-		if (invD < 0.0f) {
-			float temp = t1;
-			t1 = t0;
-			t0 = temp;
-		}
-
-		tmin = t0 > tmin ? t0 : tmin;
-		tmax = t1 < tmax ? t1 : tmax;
-
-		if (tmax <= tmin)
-			return false;
+    for (int a = 0; a < 3; ++a) {
+	float invD = 1.0f / ray.d[a];
+	float t0 = (min_[a] - ray.o[a]) * invD;
+	float t1 = (max_[a] - ray.o[a]) * invD;
+	if (invD < 0.0f) {
+	    float temp = t1;
+	    t1 = t0;
+	    t0 = temp;
 	}
+
+	tmin = t0 > tmin ? t0 : tmin;
+	tmax = t1 < tmax ? t1 : tmax;
+
+	if (tmax <= tmin)
+	    return false;
+    }
     return true;
 }
 
