@@ -32,6 +32,8 @@ struct Options {
     size_t max_bounces;
     float filter_radius;
 
+    unsigned int seed;
+
     std::string output_base;
 
     std::vector<LightPathExpression> light_paths;
@@ -57,6 +59,7 @@ Options parse_options(int argc, char** argv) {
     options.max_bounces = 3;
     options.filter_radius = 1.5f;
     options.output_base = "out";
+    options.seed = time(NULL);
 
     int i = 1;
     for (i = 1; i < argc; i += 2) {
@@ -72,6 +75,8 @@ Options parse_options(int argc, char** argv) {
 	    options.max_bounces = parse<size_t>(argv[i+1]);
         } else if (option == "--filter-radius") {
 	    options.filter_radius = parse<float>(argv[i+1]);
+        } else if (option == "--seed") {
+	    options.seed = parse<unsigned int>(argv[i+1]);
 	} else if (option == "-o") {
 	    options.output_base = parse<std::string>(argv[i+1]);
 	} else {
@@ -98,15 +103,6 @@ void explicit_shade(const std::vector<LightTreeBounce*>& downstream,
                     bool keep_lights) {
 }
 
-bool is_orthonormal_basis(const Vec3& x, const Vec3& y, const Vec3& z) {
-    return (fabs(x.norm() - 1.0f) < EPSILON)
-        && (fabs(y.norm() - 1.0f) < EPSILON)
-        && (fabs(z.norm() - 1.0f) < EPSILON)
-        && (fabs(dot(x, y)) < EPSILON)
-        && (fabs(dot(y, z)) < EPSILON)
-        && (fabs(dot(x, z)) < EPSILON);
-}
-
 std::vector<LightTreeBounce*> trace_ray(const Scene& scene,
 					Ray& ray,
 					size_t max_bounces = 0,
@@ -114,6 +110,8 @@ std::vector<LightTreeBounce*> trace_ray(const Scene& scene,
     std::vector<LightTreeBounce*> results;
     Intersect itx;
     if (scene.ray_intersect(ray, itx)) {
+	itx.setup_local_basis();
+	
 	for (size_t i = 0; i < itx.material->brdfs().size(); i++) {
 	    const BRDF* brdf = itx.material->brdfs()[i];
 	    results.push_back(new LightTreeBounce(brdf->surface_type()));
@@ -121,38 +119,25 @@ std::vector<LightTreeBounce*> trace_ray(const Scene& scene,
 
 	// recursive call :
         if (max_bounces > 0) {
-            Vec3 wo = -ray.d;
-            Vec3 local_basis_y = cross(wo, itx.normal);
-            if (local_basis_y.norm() < EPSILON) {
-                local_basis_y = cross(wo + Vec3(1.0f, 0.0f, 0.0f),
-                                     itx.normal);
-            }
-            local_basis_y.normalize();
-            Vec3 local_basis_x = cross(itx.normal, local_basis_y);
-
-            assert(is_orthonormal_basis(local_basis_x, local_basis_y, itx.normal));
-
-            float pdf;
-            Vec3 wi_sample = sample_hemisphere_cosine_weighted(&pdf);
-
-            if (pdf == 0.0f) {
-                // skip impossible samples
-                return results;
-            }
-            
-            Vec3 wi = wi_sample[0] * local_basis_x
-                + wi_sample[1] * local_basis_y
-                + wi_sample[2] * itx.normal;
-
-	    float cosine_factor = wi_sample[2];
-	    
-            Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
-                       wi);
-
 	    for (size_t i = 0; i < results.size(); i++) {
+		const BRDF* brdf = itx.material->brdfs()[i];
+		
+		float pdf;
+		Vec3 wi = brdf->sample_wi(itx, itx.wo, &pdf);
+		
+		if (pdf == 0.0f) {
+		    // skip impossible samples
+		    continue;
+		}
+		
+		float cosine_factor = dot(wi, itx.normal);
+	    
+		Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
+			   wi);
+
 		RGBColor f = itx.material->brdfs()[i]->f(itx,
 							 wi,
-							 wo);
+							 itx.wo);
 
 		Ray bounce_copy(bounce); // to avoid changing bounce.tmax
 		std::vector<LightTreeBounce*> bounce_trees =
@@ -286,11 +271,11 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     Scene sc;
     SDL_Surface* surf = SDL_CreateRGBSurface(0, options.width, options.height, 32, 0, 0, 0, 0);
 
-    initialize_random_system();
+    initialize_random_system(options.seed);
 
     float fov = radians(45.0f);
     float half_fov = .5f * fov;
-    Camera cam(Vec3(0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f),
+    Camera cam(Vec3(0.0f, -7.0f, 3.0f),
                Vec3(0.0f, 0.0f, 1.0f),
                Vec3(0.0f, 0.0f, 1.0f),
                fov,
@@ -302,34 +287,40 @@ void render(SDL_Window* window, std::vector<RGBFilm>& output_images, const Optio
     LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
     LambertMaterial green(RGBColor(.7f, 1.0f, .7f));
     
-    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, .7f), 0.5f, .2f, .05f);
+    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, .7f), .05f, .05f);
+    MicrofacetMaterial glossy_red(RGBColor(1.0f, .0f, .0f), .05f, .05f);
     
-    Emission emission(10.0f * RGBColor(1.0f, 1.0f, 1.0f));
+    Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
     TriangleMesh teapot_mesh("dragon.obj");
     TriangleMesh box_mesh("box.obj");
     TriangleMesh left_wall_mesh("left_wall.obj");
     TriangleMesh right_wall_mesh("right_wall.obj");
+    TriangleMesh plane_mesh("studio_plane.obj");
+    TriangleMesh light_mesh("studio_light.obj");
 
     Sphere light_sphere(Vec3({.0f, 0.0f, 1.8f}), .15f);
     // TriangleMesh light_mesh("light.obj");
     
-    Sphere sphere(Vec3({.5f, -.5f, .25f}), .25f);
+    Sphere sphere(Vec3({0.0f, 0.0f, 1.0f}), 1.0f);
 
     Shape teapot(&teapot_mesh, &glossy);
     Shape red_sphere(&sphere, &red);
+    Shape plane(&plane_mesh, &white);
     Shape box(&box_mesh, &white);
     Shape left_wall(&left_wall_mesh, &yellow);
     Shape right_wall(&right_wall_mesh, &blue);
-    Shape light_shape(&light_sphere, &emission);
+    Shape light_shape(&light_mesh, &emission);
 
     teapot.set_transform(Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
 
-    sc.add_shape(&box);
-    sc.add_shape(&left_wall);
-    sc.add_shape(&right_wall);
+    // sc.add_shape(&box);
+    // sc.add_shape(&left_wall);
+    // sc.add_shape(&right_wall);
+
+    sc.add_shape(&plane);
     
-    sc.add_shape(&teapot);
+    // sc.add_shape(&teapot);
     sc.add_shape(&red_sphere);
     
     sc.add_shape(&light_shape);

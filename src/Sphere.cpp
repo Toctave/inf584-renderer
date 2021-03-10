@@ -39,6 +39,10 @@ bool Sphere::ray_intersect(const Ray& ray) const {
     return false;
 }
 
+float Sphere::area() const {
+    return 4.0f * M_PI * radius_ * radius_;
+}
+
 bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
     float a = ray.d.norm_squared();
     float b = 2.0f * dot(ray.o - center_, ray.d);

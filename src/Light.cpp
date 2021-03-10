@@ -40,7 +40,7 @@ LightSample AreaLight::sample(const Vec3& point) const {
 
     Vec3 wi = (on_light - point).normalized();
     float solid_angle_pdf = pdf * (on_light - point).norm_squared()
-        / fabs(dot(itx.normal, -wi));
+        / fabs(dot(itx.normal, wi));
 
     Ray shadow_ray = Ray::segment(point, on_light);
     shadow_ray.tmax = 1 - EPSILON;

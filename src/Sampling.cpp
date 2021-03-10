@@ -5,10 +5,10 @@
 static std::uniform_real_distribution<float> g_distribution;
 static std::mt19937 g_mt;
 
-void initialize_random_system() {
-    std::random_device rd;
-    g_mt = std::mt19937(rd());
+void initialize_random_system(unsigned int seed) {
+    g_mt = std::mt19937(seed);
     g_distribution = std::uniform_real_distribution<float>(0.0f, 1.0f);
+    std::cout << "RNG seed : " << seed << "\n";
 }
 
 float random_01() {

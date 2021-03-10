@@ -247,6 +247,10 @@ size_t TriangleMesh::triangle_count() const {
     return triangles_.size();
 }
 
-Triangle TriangleMesh::triangle(size_t i) const {
+const Triangle& TriangleMesh::triangle(size_t i) const {
     return triangles_[i];
+}
+
+float TriangleMesh::area() const {
+    return total_area_;
 }

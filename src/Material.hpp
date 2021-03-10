@@ -23,7 +23,7 @@ public:
 
 class MicrofacetMaterial : public Material {
 public:
-    MicrofacetMaterial(const RGBColor& albedo, float specular_ratio, float roughness, float ior);
+    MicrofacetMaterial(const RGBColor& albedo, float roughness, float ior);
 };
 
 class Emission : public Material {

@@ -10,6 +10,7 @@ public:
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const = 0;
     virtual Vec3 sample(float& pdf) const = 0;
     virtual void print() const;
+    virtual float area() const = 0;
 };
 
 class Shape {

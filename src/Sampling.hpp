@@ -2,7 +2,7 @@
 
 #include "Vec.hpp"
 
-void initialize_random_system();
+void initialize_random_system(unsigned int seed);
 float random_01();
 Vec2 sample_unit_square();
 Vec2 sample_unit_disc();

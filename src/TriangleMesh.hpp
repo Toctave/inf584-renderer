@@ -37,7 +37,8 @@ public:
     virtual bool ray_intersect(const Ray& ray) const override;
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const;
     virtual Vec3 sample(float& pdf) const;
+    virtual float area() const override;
 
     size_t triangle_count() const;
-    Triangle triangle(size_t i) const;
+    const Triangle& triangle(size_t i) const;
 };
