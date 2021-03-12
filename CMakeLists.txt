@@ -6,9 +6,12 @@ set (CMAKE_CXX_STANDARD 11)
 # Use libANN
 add_subdirectory(src/extern/ann_1.1.2/)
 
+# use toml11
+add_subdirectory(toml11)
+
 add_executable(${PROJECT_NAME})
 
-target_include_directories(${PROJECT_NAME} PRIVATE ./src/extern/ann_1.1.2/include)
+target_include_directories(${PROJECT_NAME} PRIVATE ./src/extern/ann_1.1.2/include toml11)
 target_sources(${PROJECT_NAME} PRIVATE
   src/main.cpp
   src/Color.cpp
@@ -36,7 +39,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 find_package(OpenMP REQUIRED)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX SDL2 ann)
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX SDL2 ann toml11)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wno-unused-parameter)
 
 target_include_directories(${PROJECT_NAME} PRIVATE src/extern)
