@@ -12,9 +12,9 @@ Sphere::Sphere(Vec3 center, float radius)
 }
 
 bool Sphere::ray_intersect(const Ray& ray) const {
-    float a = ray.d.norm_squared();
+    float a = norm_squared(ray.d);
     float b = 2.0f * dot(ray.o - center_, ray.d);
-    float c = (ray.o - center_).norm_squared() - radius_ * radius_;
+    float c = norm_squared(ray.o - center_) - radius_ * radius_;
 
     float disc = b * b - 4 * a * c;
     
@@ -44,9 +44,9 @@ float Sphere::area() const {
 }
 
 bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
-    float a = ray.d.norm_squared();
+    float a = norm_squared(ray.d);
     float b = 2.0f * dot(ray.o - center_, ray.d);
-    float c = (ray.o - center_).norm_squared() - radius_ * radius_;
+    float c = norm_squared(ray.o - center_) - radius_ * radius_;
 
     float disc = b * b - 4 * a * c;
     

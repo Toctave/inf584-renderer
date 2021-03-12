@@ -52,7 +52,7 @@ void RGBFilm::add_sample(const Vec2& pos, RGBColor color) {
     
     // clamp samples carrying too much light
     // this biases the render, but leads to smoother results
-    if (sample_color.norm_squared() > firefly_threshold_squared) {
+    if (norm_squared(sample_color) > firefly_threshold_squared) {
 	sample_color = firefly_threshold * sample_color.normalized();
     }
     

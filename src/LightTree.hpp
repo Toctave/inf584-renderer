@@ -11,9 +11,7 @@
 class LightTree {
 private:
     std::vector<const LightTree*> upstream_;
-    std::vector<float> pdfs_;
-    std::vector<RGBColor> brdfs_;
-    std::vector<float> angle_cos_;
+    std::vector<RGBColor> attenuations_;
 
     SurfaceType type_;
     RGBColor emitted_;
@@ -32,7 +30,7 @@ public:
     RGBColor radiance() const;
     RGBColor radiance_channel(const LightPathExpression& channel) const;
     
-    void add_upstream(const LightTree* tree, float pdf, RGBColor brdf, float angle_cos);
+    void add_upstream(const LightTree* tree, RGBColor color);
     void add_upstream(const LightTree* tree);
 
     void print() const;

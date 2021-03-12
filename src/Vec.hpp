@@ -39,8 +39,6 @@ public:
     const Vec<T, N>& operator*=(const T& other);
     const Vec<T, N>& operator/=(const T& other);
 
-    T norm_squared() const;
-    T norm() const;
     void normalize();
     Vec<T, N> normalized() const;
 
@@ -73,6 +71,12 @@ template<typename T, size_t N>
 T dot(const Vec<T, N>& lhs, const Vec<T, N>& rhs);
 
 template<typename T, size_t N>
+T norm_squared(const Vec<T, N>& v);
+
+template<typename T, size_t N>
+T norm(const Vec<T, N>& v);
+
+template<typename T, size_t N>
 Vec<T, N> lerp(const Vec<T, N>& lhs, const Vec<T, N>& rhs, const T& ratio);
 
 template<typename T>
@@ -81,5 +85,6 @@ Vec<T, 3> cross(const Vec<T, 3>& lhs, const Vec<T, 3>& rhs);
 typedef Vec<float, 2> Vec2;
 typedef Vec<float, 3> Vec3;
 typedef Vec<float, 4> Vec4;
+typedef Vec<size_t, 2> Vec2s;
 
 #include "Vec.ipp"

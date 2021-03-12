@@ -74,7 +74,7 @@ void TriangleMesh::calculate_areas() {
 	Vec3 e1 = tri.positions[1] - tri.positions[0];
 	Vec3 e2 = tri.positions[2] - tri.positions[0];
 
-	float area = cross(e1, e2).norm() / 2.0f;
+	float area = norm(cross(e1, e2)) / 2.0f;
 	triangle_areas_[i] = area;
 	total_area_ += area;
 	triangle_areas_cumsum_[i] = total_area_;

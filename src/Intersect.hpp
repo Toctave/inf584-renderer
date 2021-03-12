@@ -29,7 +29,7 @@ struct Intersect {
 
     void setup_local_basis() {
 	local_y = cross(wo, normal);
-	if (local_y.norm() < EPSILON) {
+	if (norm(local_y) < EPSILON) {
 	    local_y = cross(wo + Vec3(1.0f, 0.0f, 0.0f),
 				  normal);
 	}

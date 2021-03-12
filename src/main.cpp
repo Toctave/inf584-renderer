@@ -66,8 +66,8 @@ void print_usage_string() {
 
 Options parse_options(int argc, char** argv) {
     Options options;
-    options.width = 64;
-    options.height = 64;
+    options.width = 512;
+    options.height = 512;
     options.sample_count = std::numeric_limits<size_t>::max();
     options.max_bounces = 3;
     options.filter_radius = 1.5f;
@@ -129,7 +129,7 @@ std::vector<LightTree*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounc
 		float pdf;
 		Vec3 wi = brdf->sample_wi(itx, itx.wo, &pdf);
 		
-		if (pdf == 0.0f) {
+		if (pdf <= 0.0f) {
 		    // skip impossible samples
 		    continue;
 		}
@@ -139,9 +139,9 @@ std::vector<LightTree*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounc
 		Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
 			   wi);
 
-		RGBColor f = itx.material->brdfs()[i]->f(itx,
-							 wi,
-							 itx.wo);
+		RGBColor f = brdf->f(itx,
+				     wi,
+				     itx.wo);
 
 		Ray bounce_copy(bounce); // to avoid changing bounce.tmax
 		std::vector<LightTree*> bounce_trees =
@@ -149,13 +149,35 @@ std::vector<LightTree*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounc
 
 		for (LightTree* bounce_tree : bounce_trees) {
 		    results[i]->add_upstream(bounce_tree,
-					     pdf,
-					     f,
-					     cosine_factor);
+					     f * cosine_factor / pdf);
 		}
 	    }
         }
-    }
+
+	// direct lighting
+	for (const Light* light : scene.lights()) {
+	    if (light->is_shape(itx.shape)) {
+		// don't auto sample
+		continue;
+	    }
+	    
+	    LightSample sample = light->sample(itx.point);
+
+	    if (!scene.ray_intersect(sample.shadow_ray)) {
+		for (size_t i = 0; i < results.size(); i++) {
+		    const BRDF* brdf = itx.material->brdfs()[i];
+		
+		    Vec3 wi = sample.shadow_ray.d.normalized();
+		    RGBColor f = brdf->f(itx, wi, itx.wo);
+		    float cosine_factor = dot(wi, itx.normal);
+		    
+		    LightTree* source_tree = new LightTree(SurfaceType::LIGHT, sample.intensity);
+		    results[i]->add_upstream(source_tree,
+					     f * cosine_factor / sample.pdf);
+		}
+	    }
+	}
+    } 
     return results;
 }
 
@@ -247,7 +269,8 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
     initialize_random_system(options.seed);
 
     float fov = radians(45.0f);
-    Camera cam(Vec3(0.0f, -7.0f, 3.0f),
+    float half_fov = fov * .5f;
+    Camera cam(Vec3(0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f),
                Vec3(0.0f, 0.0f, 1.0f),
                Vec3(0.0f, 0.0f, 1.0f),
                fov,
@@ -255,11 +278,11 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
 
     LambertMaterial red(RGBColor(1.0f, .0f, .0f));
     LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
-    LambertMaterial white(RGBColor::gray(.9f));
+    LambertMaterial white(RGBColor::gray(1.0f));
     LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
-    LambertMaterial green(RGBColor(.7f, 1.0f, .7f));
+    LambertMaterial green(RGBColor(.7, 1.0f, .7f));
     
-    MicrofacetMaterial glossy(RGBColor(.7f, 1.0f, 1.0f), .05f, .05f);
+    MicrofacetMaterial glossy_green(RGBColor(.7f, 1.0f, .7f), .05f, .05f);
     MicrofacetMaterial glossy_red(RGBColor(.8f, .0f, .0f), .05f, .05f);
     
     Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
@@ -276,21 +299,21 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
     
     Sphere sphere(Vec3({0.0f, 0.0f, 1.0f}), 1.0f);
 
-    Shape teapot(&teapot_mesh, &glossy_red);
+    Shape teapot(&teapot_mesh, &glossy_green);
     Shape red_sphere(&sphere, &glossy_red);
     Shape plane(&plane_mesh, &white);
     Shape box(&box_mesh, &white);
     Shape left_wall(&left_wall_mesh, &yellow);
     Shape right_wall(&right_wall_mesh, &blue);
-    Shape light_shape(&light_mesh, &emission);
+    Shape light_shape(&light_sphere, &emission);
 
-    teapot.set_transform(Transform::translate(.5f, 0.0f, 0.0f) * Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(1.0f));
+    teapot.set_transform(Transform::translate(0.0f, -.0f, 0.0f) * Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
 
-    // sc.add_shape(&box);
-    // sc.add_shape(&left_wall);
-    // sc.add_shape(&right_wall);
+    sc.add_shape(&box);
+    sc.add_shape(&left_wall);
+    sc.add_shape(&right_wall);
 
-    sc.add_shape(&plane);
+    // sc.add_shape(&plane);
     
     sc.add_shape(&teapot);
     // sc.add_shape(&red_sphere);
@@ -298,7 +321,7 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
     sc.add_shape(&light_shape);
 
     AreaLight light(&light_shape);
-    sc.add_light(&light);
+    // sc.add_light(&light);
     
     size_t samples_taken = 0;
     bool need_quit = false;
@@ -307,7 +330,7 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
     double last_time = t0;
 
     while (samples_taken < options.sample_count && !need_quit) {
-#pragma omp parallel for schedule(static, 4)
+#pragma omp parallel for schedule(static, 1)
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
 		Vec2 image_sample = get_image_sample(row, col, options.width, options.height, samples_taken);
@@ -322,6 +345,7 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
 
 		for (size_t i = 0; i < options.light_paths.size(); i++) {
 		    RGBColor radiance = eye_tree->LightTree::radiance_channel(options.light_paths[i]);
+		    // RGBColor radiance = eye_tree->radiance();
 		    output_images[i].add_sample(image_sample, radiance);
 		}
 
@@ -382,7 +406,7 @@ void display(SyncData& sync, const std::vector<RGBFilm>& output_images, const Op
 			 SDL_WINDOW_RESIZABLE);
     
     bool quit = false;
-    size_t current_img = 0;
+    int current_img = 0;
     SDL_Surface* surf = SDL_CreateRGBSurface(0, options.width, options.height, 32, 0, 0, 0, 0);
     
     update_title(window, options, current_img);
@@ -408,7 +432,7 @@ void display(SyncData& sync, const std::vector<RGBFilm>& output_images, const Op
 		    update_title(window, options, current_img);
 		    break;
 		case SDLK_LEFT:
-		    current_img = (current_img - 1) % output_images.size();
+		    current_img = (current_img + output_images.size() - 1) % output_images.size();
 		    update_title(window, options, current_img);
 		    break;
 	    }

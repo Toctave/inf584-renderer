@@ -192,20 +192,20 @@ Vec<T, 3> cross(const Vec<T, 3>& lhs, const Vec<T, 3>& rhs) {
 }
 
 template<typename T, size_t N>
-T Vec<T, N>::norm_squared() const {
-    assert(!has_nan(*this));
-    return dot(*this, *this);
+T norm_squared(const Vec<T, N>& v) {
+    assert(!has_nan(v));
+    return dot(v, v);
 }
 
 template<typename T, size_t N>
-T Vec<T, N>::norm() const {
-    assert(!has_nan(*this));
-    return std::sqrt(norm_squared());
+T norm(const Vec<T, N>& v) {
+    assert(!has_nan(v));
+    return std::sqrt(norm_squared(v));
 }
 
 template<typename T, size_t N>
 void Vec<T, N>::normalize() {
-    *this /= norm();
+    *this /= norm(*this);
     assert(!has_nan(*this));
 }
 

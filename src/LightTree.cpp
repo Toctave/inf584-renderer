@@ -11,7 +11,7 @@ LightTree::LightTree(SurfaceType type, const RGBColor& emitted)
 RGBColor LightTree::radiance() const {
     RGBColor out;
     for (size_t i = 0; i < upstream_.size(); i++) {
-	out += brdfs_[i] * angle_cos_[i] * upstream_[i]->radiance() / pdfs_[i];
+	out += attenuations_[i] * upstream_[i]->radiance();
     }
     if (upstream_.size() > 0) {
 	out /= upstream_.size();
@@ -22,15 +22,13 @@ RGBColor LightTree::radiance() const {
     return out;
 }
 
-void LightTree::add_upstream(const LightTree* tree, float pdf, RGBColor brdf, float angle_cos) {
+void LightTree::add_upstream(const LightTree* tree, RGBColor attenuation) {
     upstream_.push_back(tree);
-    pdfs_.push_back(pdf);
-    brdfs_.push_back(brdf);
-    angle_cos_.push_back(angle_cos);
+    attenuations_.push_back(attenuation);
 }
 
 void LightTree::add_upstream(const LightTree* tree) {
-    add_upstream(tree, 1.0f, RGBColor::gray(1.0f), 1.0f);
+    add_upstream(tree, RGBColor::gray(1.0f));
 }
 
 LightTree::~LightTree() {
@@ -48,14 +46,13 @@ RGBColor LightTree::radiance_channel(const LightPathExpression& channel, int off
 
     if (channel[offset] == SurfaceType::REPEAT) {
 	for (size_t i = 0; i < upstream_.size(); i++) {
-	    transmitted += brdfs_[i] * angle_cos_[i]
+	    transmitted += attenuations_[i] 
 		* (upstream_[i]->radiance_channel(channel, offset - 1, true)
-		   + upstream_[i]->radiance_channel(channel, offset, false))
-		   / pdfs_[i];
+		   + upstream_[i]->radiance_channel(channel, offset, false));
 	}
     } else if (channel[offset] == type_ || channel[offset] == SurfaceType::ANY) {
 	for (size_t i = 0; i < upstream_.size(); i++) {
-	    transmitted += brdfs_[i] * angle_cos_[i] * upstream_[i]->radiance_channel(channel, offset - 1, true) / pdfs_[i];
+	    transmitted += attenuations_[i] * upstream_[i]->radiance_channel(channel, offset - 1, true);
 	}
     } else {
 	return RGBColor();

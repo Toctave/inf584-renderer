@@ -30,6 +30,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Transform.cpp
   src/LightPathExpression.cpp
   src/stylit/FeatureVector.cpp
+  src/stylit/image_analogies.cpp
   )
 
 

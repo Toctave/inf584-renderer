@@ -10,7 +10,7 @@ LightSample PointLight::sample(const Vec3& point) const {
 
     return LightSample(
         Ray::segment(point, position_),
-        intensity_ / to_light.norm_squared(),
+        intensity_ / norm_squared(to_light),
         1.0f
     );
 }
@@ -46,7 +46,7 @@ LightSample AreaLight::sample(const Vec3& point) const {
     on_light = itx_ray.at(itx.t);
 
     Vec3 wi = (on_light - point).normalized();
-    float solid_angle_pdf = pdf * (on_light - point).norm_squared()
+    float solid_angle_pdf = pdf * norm_squared(on_light - point)
         / fabs(dot(itx.normal, wi));
 
     Ray shadow_ray = Ray::segment(point, on_light);
