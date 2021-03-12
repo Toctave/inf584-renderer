@@ -275,63 +275,6 @@ struct SyncData {
 };
 
 void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& options, const Scene& scene, const Camera& camera) {
-    // Scene sc;
-
-    // float fov = radians(45.0f);
-    // float half_fov = fov * .5f;
-    // Camera cam(Vec3(0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f),
-    //            Vec3(0.0f, 0.0f, 1.0f),
-    //            Vec3(0.0f, 0.0f, 1.0f),
-    //            fov,
-    //            static_cast<float>(options.width) / options.height);
-
-    // LambertMaterial red(RGBColor(1.0f, .0f, .0f));
-    // LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
-    // LambertMaterial white(RGBColor::gray(1.0f));
-    // LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
-    // LambertMaterial green(RGBColor(.7, 1.0f, .7f));
-    
-    // MicrofacetMaterial glossy_green(RGBColor(.7f, 1.0f, .7f), .05f, .05f);
-    // MicrofacetMaterial glossy_red(RGBColor(.8f, .0f, .0f), .05f, .05f);
-    
-    // Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
-    
-    // TriangleMesh teapot_mesh("dragon.obj");
-    // TriangleMesh box_mesh("box.obj");
-    // TriangleMesh left_wall_mesh("left_wall.obj");
-    // TriangleMesh right_wall_mesh("right_wall.obj");
-    // TriangleMesh plane_mesh("studio_plane.obj");
-    // TriangleMesh light_mesh("studio_light.obj");
-
-    // Sphere light_sphere(Vec3({.0f, 0.0f, 1.8f}), .15f);
-    // // TriangleMesh light_mesh("light.obj");
-    
-    // Sphere sphere(Vec3({0.0f, 0.0f, 1.0f}), 1.0f);
-
-    // Shape teapot(&teapot_mesh, &glossy_green);
-    // Shape red_sphere(&sphere, &glossy_red);
-    // Shape plane(&plane_mesh, &white);
-    // Shape box(&box_mesh, &white);
-    // Shape left_wall(&left_wall_mesh, &yellow);
-    // Shape right_wall(&right_wall_mesh, &blue);
-    // Shape light_shape(&light_sphere, &emission);
-
-    // teapot.set_transform(Transform::translate(0.0f, -.0f, 0.0f) * Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
-
-    // sc.add_shape(&box);
-    // sc.add_shape(&left_wall);
-    // sc.add_shape(&right_wall);
-
-    // // sc.add_shape(&plane);
-    
-    // sc.add_shape(&teapot);
-    // // sc.add_shape(&red_sphere);
-    
-    // sc.add_shape(&light_shape);
-
-    // AreaLight light(&light_shape);
-    // // sc.add_light(&light);
-    
     size_t samples_taken = 0;
     bool need_quit = false;
 
@@ -354,7 +297,6 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
 
 		for (size_t i = 0; i < options.light_paths.size(); i++) {
 		    RGBColor radiance = eye_tree->LightTree::radiance_channel(options.light_paths[i]);
-		    // RGBColor radiance = eye_tree->radiance();
 		    output_images[i].add_sample(image_sample, radiance);
 		}
 
