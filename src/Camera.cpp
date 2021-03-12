@@ -1,5 +1,8 @@
 #include "Camera.hpp"
 
+Camera::Camera() {
+}
+
 Camera::Camera(Vec3 eye, Vec3 target, Vec3 up, float fovy, float ar)
     : position_(eye), aspect_ratio_(ar) {
     frame_[2] = (eye - target).normalized();
@@ -9,7 +12,7 @@ Camera::Camera(Vec3 eye, Vec3 target, Vec3 up, float fovy, float ar)
     depth_ = std::cos(fovy * .5f) / std::sin(fovy * .5f);
 }
 
-Ray Camera::get_ray(Vec2 sample) {
+Ray Camera::get_ray(Vec2 sample) const {
     Vec3 d = sample[0] * aspect_ratio_ * frame_[0]
         + sample[1] * frame_[1]
         - depth_ * frame_[2];

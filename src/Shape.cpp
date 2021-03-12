@@ -52,3 +52,12 @@ void Shape::set_transform(Transform&& transform) {
     transform_ = transform;
 }
 
+Vec3 Shape::sample(float& pdf) const {
+    Vec3 result = primitive_->sample(pdf);
+
+    return transform_point(transform_, result);
+}
+
+Primitive::~Primitive() {
+}
+

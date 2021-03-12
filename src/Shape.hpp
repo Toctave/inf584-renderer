@@ -6,6 +6,8 @@
 
 class Primitive {
 public:
+    virtual ~Primitive();
+    
     virtual bool ray_intersect(const Ray& ray) const = 0;
     virtual bool ray_intersect(const Ray& ray, Intersect& intersect) const = 0;
     virtual Vec3 sample(float& pdf) const = 0;
@@ -29,5 +31,7 @@ public:
 
     void set_transform(const Transform& transform);
     void set_transform(Transform&& transform);
+    
+    Vec3 sample(float& pdf) const;
 };
 

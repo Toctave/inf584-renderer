@@ -32,6 +32,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/LightTree.cpp
   src/Transform.cpp
   src/LightPathExpression.cpp
+  src/TOMLParser.cpp
   src/stylit/FeatureVector.cpp
   src/stylit/image_analogies.cpp
   )

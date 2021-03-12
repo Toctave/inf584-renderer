@@ -25,6 +25,10 @@ Transform Transform::translate(float x, float y, float z) {
 	);
 }
 
+Transform Transform::translate(const Vec3& p) {
+    return translate(p[0], p[1], p[2]);
+}
+
 Transform Transform::scale(float sx, float sy, float sz) {
     return Transform(
 	Matrix4(sx, 0.0f, 0.0f, 0.0f,

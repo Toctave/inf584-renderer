@@ -11,8 +11,9 @@ private:
     float depth_;
 
 public:
+    Camera();
     Camera(Vec3 eye, Vec3 target, Vec3 up, float fovy, float ar);
-    Ray get_ray(Vec2 sample);
+    Ray get_ray(Vec2 sample) const;
 
     const Vec3& position() const;
 };

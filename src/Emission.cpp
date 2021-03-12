@@ -23,6 +23,6 @@ Vec3 EmissionBRDF::sample_wi(const Intersect& itx, const Vec3& wo, float* pdf) c
 	+ wi_sample[2] * itx.normal;
 }
 
-Emission::Emission(const RGBColor& irradiance) {
-    brdfs_.push_back(new EmissionBRDF(irradiance));
+Emission::Emission(const RGBColor& irradiance, float intensity) {
+    brdfs_.push_back(new EmissionBRDF(intensity * irradiance));
 }

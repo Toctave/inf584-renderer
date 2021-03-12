@@ -15,7 +15,7 @@ SurfaceType surface_type_from_char(char c) {
     case '.':
 	return SurfaceType::ANY;
     default:
-        throw new std::invalid_argument("Character does not match a surface type.");
+        throw std::invalid_argument("Character does not match a surface type.");
     }
 }
 

@@ -25,6 +25,7 @@
 #include "BVH.hpp"
 #include "LightTree.hpp"
 #include "stylit/stylit.hpp"
+#include "TOMLParser.hpp"
 
 struct Options {
     size_t width;
@@ -36,6 +37,8 @@ struct Options {
     unsigned int seed;
 
     std::string output_base;
+
+    std::string scene_file;
 
     std::vector<LightPathExpression> light_paths;
 };
@@ -61,7 +64,7 @@ T parse(const std::string& s) {
 
 
 void print_usage_string() {
-    std::cerr << "Usage : ./renderer -w width -h height -s sample_count [light paths...]\n";
+    std::cerr << "Usage : ./renderer [-w width] [-h height] [-s sample_count] scene_file [light paths...]\n";
 }
 
 Options parse_options(int argc, char** argv) {
@@ -95,6 +98,14 @@ Options parse_options(int argc, char** argv) {
 	} else {
 	    break;
 	}
+    }
+
+    if (i < argc) {
+	options.scene_file = parse<std::string>(argv[i]);
+	i++;
+    } else {
+	print_usage_string();
+	exit(1);
     }
 
     while (i < argc) {
@@ -263,65 +274,63 @@ struct SyncData {
     SDL_mutex* mtx;
 };
 
-void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& options) {
-    Scene sc;
+void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& options, const Scene& scene, const Camera& camera) {
+    // Scene sc;
 
-    initialize_random_system(options.seed);
+    // float fov = radians(45.0f);
+    // float half_fov = fov * .5f;
+    // Camera cam(Vec3(0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f),
+    //            Vec3(0.0f, 0.0f, 1.0f),
+    //            Vec3(0.0f, 0.0f, 1.0f),
+    //            fov,
+    //            static_cast<float>(options.width) / options.height);
 
-    float fov = radians(45.0f);
-    float half_fov = fov * .5f;
-    Camera cam(Vec3(0.0f, -1.0f - std::cos(half_fov) / std::sin(half_fov), 1.0f),
-               Vec3(0.0f, 0.0f, 1.0f),
-               Vec3(0.0f, 0.0f, 1.0f),
-               fov,
-               static_cast<float>(options.width) / options.height);
-
-    LambertMaterial red(RGBColor(1.0f, .0f, .0f));
-    LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
-    LambertMaterial white(RGBColor::gray(1.0f));
-    LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
-    LambertMaterial green(RGBColor(.7, 1.0f, .7f));
+    // LambertMaterial red(RGBColor(1.0f, .0f, .0f));
+    // LambertMaterial yellow(RGBColor(.9f, .6f, .1f));
+    // LambertMaterial white(RGBColor::gray(1.0f));
+    // LambertMaterial blue(RGBColor(.3f, .3f, 1.0f));
+    // LambertMaterial green(RGBColor(.7, 1.0f, .7f));
     
-    MicrofacetMaterial glossy_green(RGBColor(.7f, 1.0f, .7f), .05f, .05f);
-    MicrofacetMaterial glossy_red(RGBColor(.8f, .0f, .0f), .05f, .05f);
+    // MicrofacetMaterial glossy_green(RGBColor(.7f, 1.0f, .7f), .05f, .05f);
+    // MicrofacetMaterial glossy_red(RGBColor(.8f, .0f, .0f), .05f, .05f);
     
-    Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
+    // Emission emission(50.0f * RGBColor(1.0f, 1.0f, 1.0f));
     
-    TriangleMesh teapot_mesh("dragon.obj");
-    TriangleMesh box_mesh("box.obj");
-    TriangleMesh left_wall_mesh("left_wall.obj");
-    TriangleMesh right_wall_mesh("right_wall.obj");
-    TriangleMesh plane_mesh("studio_plane.obj");
-    TriangleMesh light_mesh("studio_light.obj");
+    // TriangleMesh teapot_mesh("dragon.obj");
+    // TriangleMesh box_mesh("box.obj");
+    // TriangleMesh left_wall_mesh("left_wall.obj");
+    // TriangleMesh right_wall_mesh("right_wall.obj");
+    // TriangleMesh plane_mesh("studio_plane.obj");
+    // TriangleMesh light_mesh("studio_light.obj");
 
-    Sphere light_sphere(Vec3({.0f, 0.0f, 1.8f}), .15f);
-    // TriangleMesh light_mesh("light.obj");
+    // Sphere light_sphere(Vec3({.0f, 0.0f, 1.8f}), .15f);
+    // // TriangleMesh light_mesh("light.obj");
     
-    Sphere sphere(Vec3({0.0f, 0.0f, 1.0f}), 1.0f);
+    // Sphere sphere(Vec3({0.0f, 0.0f, 1.0f}), 1.0f);
 
-    Shape teapot(&teapot_mesh, &glossy_green);
-    Shape red_sphere(&sphere, &glossy_red);
-    Shape plane(&plane_mesh, &white);
-    Shape box(&box_mesh, &white);
-    Shape left_wall(&left_wall_mesh, &yellow);
-    Shape right_wall(&right_wall_mesh, &blue);
-    Shape light_shape(&light_sphere, &emission);
+    // Shape teapot(&teapot_mesh, &glossy_green);
+    // Shape red_sphere(&sphere, &glossy_red);
+    // Shape plane(&plane_mesh, &white);
+    // Shape box(&box_mesh, &white);
+    // Shape left_wall(&left_wall_mesh, &yellow);
+    // Shape right_wall(&right_wall_mesh, &blue);
+    // Shape light_shape(&light_sphere, &emission);
 
-    teapot.set_transform(Transform::translate(0.0f, -.0f, 0.0f) * Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
+    // teapot.set_transform(Transform::translate(0.0f, -.0f, 0.0f) * Transform::rotate(Vec3(0.0f, 0.0f, 1.0f), radians(90.0f)) * Transform::scale(.35f));
 
-    sc.add_shape(&box);
-    sc.add_shape(&left_wall);
-    sc.add_shape(&right_wall);
+    // sc.add_shape(&box);
+    // sc.add_shape(&left_wall);
+    // sc.add_shape(&right_wall);
 
-    // sc.add_shape(&plane);
+    // // sc.add_shape(&plane);
     
-    sc.add_shape(&teapot);
-    // sc.add_shape(&red_sphere);
+    // sc.add_shape(&teapot);
+    // // sc.add_shape(&red_sphere);
     
-    sc.add_shape(&light_shape);
+    // sc.add_shape(&light_shape);
 
-    AreaLight light(&light_shape);
-    // sc.add_light(&light);
+    // AreaLight light(&light_shape);
+    // // sc.add_light(&light);
     
     size_t samples_taken = 0;
     bool need_quit = false;
@@ -336,10 +345,10 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
 		Vec2 image_sample = get_image_sample(row, col, options.width, options.height, samples_taken);
 		Vec2 screen_sample = to_screen_space(image_sample, options.width, options.height);
 		
-                Ray camera_ray = cam.get_ray(screen_sample);
+                Ray camera_ray = camera.get_ray(screen_sample);
 
 		LightTree* eye_tree = new LightTree(SurfaceType::EYE, RGBColor());
-		for (LightTree* tree : trace_ray(sc, camera_ray, options.max_bounces)) {
+		for (LightTree* tree : trace_ray(scene, camera_ray, options.max_bounces)) {
 		    eye_tree->add_upstream(tree);
 		}
 
@@ -381,12 +390,14 @@ struct RenderThreadData {
     SyncData& sync;
     std::vector<RGBFilm>& output_images;
     const Options& options;
+    const Scene& scene;
+    const Camera& camera;
 };
 
 int render_thread(void* data) {
     RenderThreadData* rtd = static_cast<RenderThreadData*>(data);
 
-    render(rtd->sync, rtd->output_images, rtd->options);
+    render(rtd->sync, rtd->output_images, rtd->options, rtd->scene, rtd->camera);
 
     return 0;
 }
@@ -452,11 +463,14 @@ int main(int argc, char** argv) {
 	output_images.push_back(RGBFilm(options.width, options.height, options.filter_radius));
     }
     
+    TOMLParser parser(argv[1], static_cast<float>(options.width) / options.height);
+    
     SDL_Init(SDL_INIT_VIDEO);
+    initialize_random_system(options.seed);
 
     SyncData sync{ false, SDL_CreateMutex() };
     
-    RenderThreadData data{sync, output_images, options};
+    RenderThreadData data{sync, output_images, options, parser.scene(), parser.camera()};
     SDL_Thread* thread = SDL_CreateThread(render_thread, "render", &data);
 
     display(sync, output_images, options);

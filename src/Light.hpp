@@ -18,6 +18,7 @@ class Light {
 public:
     virtual LightSample sample(const Vec3& point) const = 0;
     virtual bool is_shape(const Shape* shape) const = 0;
+    virtual ~Light();
 };
 
 class PointLight : public Light {

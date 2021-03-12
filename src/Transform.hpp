@@ -14,6 +14,7 @@ public:
     Transform(Matrix4&& forwards, Matrix4&& backwards);
     Transform(const Matrix4& forwards, const Matrix4& backwards);
 
+    static Transform translate(const Vec3& p);
     static Transform translate(float x, float y, float z);
     static Transform scale(float sx, float sy, float sz);
     static Transform scale(float s);

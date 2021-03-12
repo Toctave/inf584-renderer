@@ -1,0 +1,107 @@
+[camera]
+fov = 45.0
+eye = [0.0, -3.0, 1.0]
+target = [0.0, 0.0, 1.0]
+up = [0.0, 0.0, 1.0]
+
+
+[[materials]]
+name = "red"
+type = "lambert"
+albedo = [1.0, 0.0, 0.0]
+
+[[materials]]
+name = "white"
+type = "lambert"
+albedo = [1.0, 1.0, 1.0]
+
+[[materials]]
+name = "yellow"
+type = "lambert"
+albedo = [0.9, 0.6, 0.1]
+
+[[materials]]
+name = "blue"
+type = "lambert"
+albedo = [0.3, 0.3, 1.0]
+
+[[materials]]
+name = "glossy"
+type = "microfacet"
+albedo = [0.7, 1.0, 0.7]
+roughness = 0.05
+ior = 0.05
+
+[[materials]]
+name = "emission"
+type = "emission"
+color = [1.0, 1.0, 1.0]
+power = 50.0
+
+
+[[primitives]]
+name = "sphere"
+type = "sphere"
+center = [0.0, 0.0, 1.0]
+radius = 1.0
+
+[[primitives]]
+name = "dragon_mesh"
+type = "mesh"
+path = "dragon.obj"
+
+[[primitives]]
+name = "box_mesh"
+type = "mesh"
+path = "box.obj"
+
+[[primitives]]
+name = "left_wall_mesh"
+type = "mesh"
+path = "left_wall.obj"
+
+[[primitives]]
+name = "right_wall_mesh"
+type = "mesh"
+path = "right_wall.obj"
+
+[[primitives]]
+name = "light_sphere"
+type = "sphere"
+center = [0.0, 0.0, 1.8]
+radius = 0.15
+
+
+# [[shapes]]
+# primitive = "sphere"
+# material = "red"
+
+[[shapes]]
+primitive = "left_wall_mesh"
+material = "yellow"
+
+[[shapes]]
+primitive = "right_wall_mesh"
+material = "blue"
+
+[[shapes]]
+primitive = "dragon_mesh"
+material = "glossy"
+scale = 0.35
+rotate_axis = [0.0, 0.0, 1.0]
+rotate_angle = 90.0
+
+[[shapes]]
+primitive = "box_mesh"
+material = "white"
+
+[[shapes]]
+name = "light_shape"
+primitive = "light_sphere"
+material = "emission"
+
+
+[[lights]]
+type = "area"
+shape = "light_shape"
+

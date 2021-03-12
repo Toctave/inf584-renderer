@@ -28,5 +28,5 @@ public:
 
 class Emission : public Material {
 public:
-    Emission(const RGBColor& irradiance);
+    Emission(const RGBColor& irradiance, float intensity = 1.0f);
 };

@@ -1,6 +1,9 @@
 #include "Light.hpp"
 #include "Material.hpp"
 
+Light::~Light() {
+}
+
 PointLight::PointLight(const Vec3& position, const RGBColor& color, float intensity)
     : position_(position), intensity_(color * intensity) {
 }
@@ -29,7 +32,7 @@ bool AreaLight::is_shape(const Shape* shape) const {
 
 LightSample AreaLight::sample(const Vec3& point) const {
     float pdf;
-    Vec3 on_light = shape_->primitive()->sample(pdf);
+    Vec3 on_light = shape_->sample(pdf);
     
     Ray itx_ray(point, on_light - point);
     Intersect itx;
