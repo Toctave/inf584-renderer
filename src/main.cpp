@@ -405,7 +405,7 @@ int main(int argc, char** argv) {
 	output_images.push_back(RGBFilm(options.width, options.height, options.filter_radius));
     }
     
-    TOMLParser parser(argv[1], static_cast<float>(options.width) / options.height);
+    TOMLParser parser(options.scene_file, static_cast<float>(options.width) / options.height);
     
     SDL_Init(SDL_INIT_VIDEO);
     initialize_random_system(options.seed);
