@@ -1,0 +1,78 @@
+[camera]
+fov = 45.0
+eye = [0.0, -8.0, 3.0]
+target = [0.0, 0.0, 1.0]
+up = [0.0, 0.0, 1.0]
+
+
+[[materials]]
+name = "red"
+type = "lambert"
+albedo = [1.0, 0.0, 0.0]
+
+[[materials]]
+name = "white"
+type = "lambert"
+albedo = [1.0, 1.0, 1.0]
+
+[[materials]]
+name = "yellow"
+type = "lambert"
+albedo = [0.9, 0.6, 0.1]
+
+[[materials]]
+name = "blue"
+type = "lambert"
+albedo = [0.3, 0.3, 1.0]
+
+[[materials]]
+name = "glossy"
+type = "microfacet"
+albedo = [1.0, 0.0, 0.0]
+roughness = 0.05
+ior = 0.05
+
+[[materials]]
+name = "emission"
+type = "emission"
+color = [1.0, 1.0, 1.0]
+power = 50.0
+
+
+[[primitives]]
+name = "dragon_mesh"
+type = "mesh"
+path = "dragon.obj"
+
+[[primitives]]
+name = "plane_mesh"
+type = "mesh"
+path = "studio_plane.obj"
+
+[[primitives]]
+name = "light_mesh"
+type = "mesh"
+path = "studio_light.obj"
+
+
+[[shapes]]
+primitive = "dragon_mesh"
+material = "glossy"
+translate = [0.5, -0.5, 0.0]
+rotate_axis = [0.0, 0.0, 1.0]
+rotate_angle = 90.0
+
+[[shapes]]
+primitive = "plane_mesh"
+material = "white"
+
+[[shapes]]
+name = "light_shape"
+primitive = "light_mesh"
+material = "emission"
+
+
+[[lights]]
+type = "area"
+shape = "light_shape"
+
