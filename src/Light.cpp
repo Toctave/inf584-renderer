@@ -53,7 +53,6 @@ LightSample AreaLight::sample(const Vec3& point) const {
         / fabs(dot(itx.normal, wi));
 
     Ray shadow_ray = Ray::segment(point, on_light);
-    shadow_ray.tmax = 1.0f;
 
     RGBColor emitted;
     for (const BRDF* brdf : shape_->material()->brdfs()) {

@@ -166,27 +166,28 @@ std::vector<LightTree*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounc
         }
 
 	// direct lighting
+	Vec3 hover_point = itx.point + EPSILON * itx.normal;
 	for (const Light* light : scene.lights()) {
 	    if (light->is_shape(itx.shape)) {
 		// don't auto sample
 		continue;
 	    }
 	    
-	    LightSample sample = light->sample(itx.point);
-
+	    LightSample sample = light->sample(hover_point);
+	    Vec3 wi = sample.shadow_ray.d.normalized();
+	    float cosine_factor = dot(wi, itx.normal);
+	    
 	    if (!scene.ray_intersect(sample.shadow_ray)) {
 		for (size_t i = 0; i < results.size(); i++) {
 		    const BRDF* brdf = itx.material->brdfs()[i];
 		
-		    Vec3 wi = sample.shadow_ray.d.normalized();
 		    RGBColor f = brdf->f(itx, wi, itx.wo);
-		    float cosine_factor = dot(wi, itx.normal);
 		    
 		    LightTree* source_tree = new LightTree(SurfaceType::LIGHT, sample.intensity);
 		    results[i]->add_upstream(source_tree,
 					     f * cosine_factor / sample.pdf);
 		}
-	    }
+	    } 
 	}
     } 
     return results;
