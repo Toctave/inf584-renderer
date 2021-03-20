@@ -93,6 +93,7 @@ static inline Vec3 get_v3(const std::vector<float>& v, int idx) {
 TriangleMesh::TriangleMesh(const std::string& obj_filepath) {
     tinyobj::ObjReader reader;
     tinyobj::ObjReaderConfig config;
+    config.triangulate = false;
 
     if (!reader.ParseFromFile(obj_filepath, config)) {
         if (!reader.Error().empty()) {
