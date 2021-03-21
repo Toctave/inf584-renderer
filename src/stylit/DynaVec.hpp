@@ -28,6 +28,8 @@ public:
     const DynaVec<T>& extend(const DynaVec<T>& v);
     const DynaVec<T>& extend(const T& v);
 
+    const T* data() const;
+
     size_t dim() const;
 };
 

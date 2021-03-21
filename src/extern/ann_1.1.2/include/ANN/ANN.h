@@ -155,8 +155,8 @@ enum ANNbool {ANNfalse = 0, ANNtrue = 1}; // ANN boolean type (non ANSI C++)
 //		not occur in distance calculation.
 //----------------------------------------------------------------------
 
-typedef double	ANNcoord;				// coordinate data type
-typedef double	ANNdist;				// distance data type
+typedef float	ANNcoord;				// coordinate data type
+typedef float	ANNdist;				// distance data type
 
 //----------------------------------------------------------------------
 //	ANNidx
@@ -196,7 +196,7 @@ const ANNidx	ANN_NULL_IDX = -1;		// a NULL point index
 //		short	SHRT_MAX		0x7fff
 //----------------------------------------------------------------------
 
-const ANNdist	ANN_DIST_INF = ANN_DBL_MAX;
+const ANNdist	ANN_DIST_INF = FLT_MAX;
 
 //----------------------------------------------------------------------
 //	Significant digits for tree dumps:
@@ -217,9 +217,9 @@ const ANNdist	ANN_DIST_INF = ANN_DBL_MAX;
 //----------------------------------------------------------------------
 
 #ifdef DBL_DIG							// number of sig. bits in ANNcoord
-	const int	 ANNcoordPrec	= DBL_DIG;
+	const int	 ANNcoordPrec	= FLT_DIG;
 #else
-	const int	 ANNcoordPrec	= 15;	// default precision
+	const int	 ANNcoordPrec	= 6;	// default precision
 #endif
 
 //----------------------------------------------------------------------

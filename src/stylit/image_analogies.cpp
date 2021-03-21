@@ -1,50 +1,11 @@
 #include "image_analogies.hpp"
 
 #include "DynaVec.hpp"
+#include "../constants.hpp"
 
 #include <ANN/ANN.h>
 
-// TODO : actually use a gaussian filter
-static std::vector<Buffer2D<Feature>>
-build_gaussian_pyramid(const Buffer2D<Feature>& base, size_t levels) {
-    std::vector<Buffer2D<Feature>> pyramid;
-    pyramid.reserve(levels);
-
-    pyramid.push_back(base);
-
-    for (size_t i = 1; i < levels; i++) {
-	size_t rows = static_cast<size_t>(pyramid.back().rows() / 2);
-	size_t columns = static_cast<size_t>(pyramid.back().columns() / 2);
-
-	pyramid.push_back(resized(pyramid.back(), rows, columns));
-    }
-    return pyramid;
-}
-
-static Vec2s
-best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
-    
-}
-
-static Vec2s
-best_coherence_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
-}
-
-static float filtered_feature_diff(const ImageAnalogySystem& system, size_t level, Vec2s p, Vec2s q) {
-    return norm_squared(system.source_filtered[level](p) - system.target_filtered[level](q));
-}
-
-static float unfiltered_feature_diff(const ImageAnalogySystem& system, size_t level, Vec2s p, Vec2s q) {
-    return norm_squared(system.source_unfiltered[level](p) - system.target_unfiltered[level](q));
-}
-
-static bool in_bounds(const Buffer2D<Feature>& img, Vec2s p) {
-    return (p[0] < img.rows())
-	&& (p[1] < img.columns());
-}
-
-template<typename T>
-static void extend(DynaVec<T>& v, const Feature& feature) {
+static void extend(DynaVec<float>& v, const Feature& feature) {
     v.extend(feature);
 }
 
@@ -72,6 +33,92 @@ static DynaVec<float> get_pyramid_neighborhood(const std::vector<Buffer2D<Featur
     return result;
 }
 
+static DynaVec<float> get_source_neighborhood(const ImageAnalogySystem& system, size_t base_level, Vec2s p) {
+    return get_pyramid_neighborhood(system.source_unfiltered, base_level, p)
+	.extend(get_pyramid_neighborhood(system.source_filtered, base_level, p));
+}
+
+static DynaVec<float> get_target_neighborhood(const ImageAnalogySystem& system, size_t base_level, Vec2s q) {
+    return get_pyramid_neighborhood(system.target_unfiltered, base_level, q)
+	.extend(get_pyramid_neighborhood(system.target_filtered, base_level, q));
+}
+
+// TODO : actually use a gaussian filter
+static std::vector<Buffer2D<Feature>>
+build_gaussian_pyramid(const Buffer2D<Feature>& base, size_t levels) {
+    std::vector<Buffer2D<Feature>> pyramid;
+    pyramid.reserve(levels);
+
+    pyramid.push_back(base);
+
+    for (size_t i = 1; i < levels; i++) {
+	size_t rows = static_cast<size_t>(pyramid.back().rows() / 2);
+	size_t columns = static_cast<size_t>(pyramid.back().columns() / 2);
+
+	pyramid.push_back(resized(pyramid.back(), rows, columns));
+    }
+    return pyramid;
+}
+
+static size_t source_stride(const ImageAnalogySystem& system, size_t level) {
+    return system.source_unfiltered[level].columns() - 4;
+}
+
+static Vec2s source_pixel_from_idx(const ImageAnalogySystem& system, size_t level, ANNidx idx) {
+    size_t stride = source_stride(system, level);
+    return Vec2s(2 + idx / stride, 2 + idx % stride);
+}
+
+static Vec2s
+best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
+    static const double eps = 0.0; // TODO : pick a value for eps
+    DynaVec<float> query = get_target_neighborhood(system, level, q);
+    ANNidx result_idx;
+    ANNdist result_dist;
+    
+    // libANN does not use const qualifiers, have to cast away constness here :
+    const_cast<ImageAnalogySystem&>(system)
+	.kd_trees[level].annkSearch(
+	    const_cast<ANNpoint>(query.data()),
+	    1,
+	    &result_idx,
+	    &result_dist,
+	    eps);
+
+    return source_pixel_from_idx(system, level, result_idx);
+}
+
+static Vec2s
+best_coherence_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
+    Vec2s candidate;
+    Vec2s best_candidate;
+    float best_dist2 = INFTY;
+
+    DynaVec<float> target_features = get_target_neighborhood(system, level, q);
+    for (candidate[0] = q[0] - 2; candidate[0] <= q[0] + 2; candidate[0]++) {
+	for (candidate[1] = q[1] - 2; candidate[1] <= q[1] + 2; candidate[1]++) {
+	    Vec2s assgnt = system.assignments[level](candidate);
+	    Vec2s candidate_in_source = assgnt + q - candidate;
+	    DynaVec<float> candidate_features = get_source_neighborhood(system, level, candidate_in_source);
+	    float dist2 = norm_squared(candidate_features - target_features);
+
+	    if (dist2 < best_dist2) {
+		best_dist2 = dist2;
+		best_candidate = candidate_in_source;
+	    }
+	}
+    }
+
+    assert(best_dist2 < INFTY);
+    
+    return best_candidate;
+}
+
+static bool in_bounds(const Buffer2D<Feature>& img, Vec2s p) {
+    return (p[0] < img.rows())
+	&& (p[1] < img.columns());
+}
+
 static float
 feature_diff_neighbourhood(const ImageAnalogySystem& system, size_t level, Vec2s p, Vec2s q) {
     DynaVec<float> su = get_pyramid_neighborhood(system.source_unfiltered, level, p);
@@ -81,44 +128,6 @@ feature_diff_neighbourhood(const ImageAnalogySystem& system, size_t level, Vec2s
     DynaVec<float> tf = get_pyramid_neighborhood(system.target_filtered, level, q);
 
     return norm_squared(su - tu) + norm_squared(sf - tf);
-
-    // Vec2s ofs;
-
-    // // fine level
-    // for (ofs[0] = -n_fine; ofs[0] <= n_fine; ofs[0]++) {
-    // 	for (ofs[1] = -n_fine; ofs[1] <= n_fine; ofs[1]++) {
-    // 	    Vec2s nbp = p + ofs;
-    // 	    Vec2s nbq = q + ofs;
-	    
-    // 	    // TODO : convolve with a gaussian kernel here
-    // 	    if (in_bounds(system.source_filtered[level], nbp)
-    // 		&& in_bounds(system.target_filtered[level], nbq)) {
-    // 		diff += filtered_feature_diff(system, level, nbp, nbq);
-    // 		diff += unfiltered_feature_diff(system, level, nbp, nbq);
-    // 	    }
-    // 	}
-    // }
-
-    // // coarse level
-    // Vec2s p_coarse(static_cast<size_t>(p[0] * system.scale_factor),
-    // 		   static_cast<size_t>(p[1] * system.scale_factor));
-    // Vec2s q_coarse(static_cast<size_t>(q[0] * system.scale_factor),
-    // 		   static_cast<size_t>(q[1] * system.scale_factor));
-    // size_t level_coarse = level + 1;
-
-    // for (ofs[0] = -n_coarse; ofs[0] <= n_coarse; ofs[0]++) {
-    // 	for (ofs[1] = -n_coarse; ofs[1] <= n_coarse; ofs[1]++) {
-    // 	    Vec2s nbp = p_coarse + ofs;
-    // 	    Vec2s nbq = q_coarse + ofs;
-
-    // 	    // TODO : convolve with a gaussian kernel here
-    // 	    if (in_bounds(system.source_filtered[level_coarse], nbp)
-    // 		&& in_bounds(system.target_filtered[level_coarse], nbq)) {
-    // 		diff += filtered_feature_diff(system, level_coarse, nbp, nbq);
-    // 		diff += unfiltered_feature_diff(system, level_coarse, nbp, nbq);
-    // 	    }
-    // 	}
-    // }
 }
 
 static Vec2s
@@ -136,8 +145,8 @@ best_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
     }
 }
 
-static void solve(ImageAnalogySystem& system) {
-    for (size_t l = system.levels - 1; l < system.levels; l--) {
+void solve(ImageAnalogySystem& system) {
+    for (size_t l = system.levels - 2; l + 1 < system.levels; l--) {
 	Vec2s q;
 	for(q[0] = 0; q[0] < system.target_filtered[l].rows(); q[0]++) {
 	    for(q[1] = 0; q[1] < system.target_filtered[l].columns(); q[1]++) {
@@ -166,6 +175,34 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
     for (size_t i = 0; i < levels; i++) {
 	target_filtered.push_back(Buffer2D<Feature>(target_unfiltered[i].rows(), target_unfiltered[i].columns()));
 	assignments.push_back(Buffer2D<Vec2s>(target_unfiltered[i].rows(), target_unfiltered[i].columns()));
+    }
+
+    for (size_t lvl = 0; lvl + 1 < levels; lvl++) {
+	Vec2s p;
+
+	size_t neighborhood_count =
+	    (source_unfiltered[lvl].rows() - 4) * (source_unfiltered[lvl].columns() - 4);
+
+	size_t neighborhood_dims = FEATURE_DIM * (5 * 5 + 3 * 3);
+	ANNpoint* neighborhoods_lvl = new ANNpoint[neighborhood_count]; // TODO : delete this
+	float* coord_buffer = new float[neighborhood_count * neighborhood_dims]; // TODO : delete this
+
+	size_t nb_idx = 0;
+	for (p[0] = 2; p[0] + 2 < source_unfiltered[lvl].rows(); p[0]++) {
+	    for (p[1] = 2; p[1] + 2 < source_unfiltered[lvl].columns(); p[1]++) {
+		DynaVec<float> neigh = get_source_neighborhood(*this, lvl, p);
+		assert(neigh.dims() == neighborhood_dims);
+
+		neighborhoods_lvl[nb_idx] = &coord_buffer[nb_idx * neighborhood_dims];
+		memcpy(neighborhoods_lvl[nb_idx], neigh.data(), sizeof(float) * neighborhood_dims);
+
+		nb_idx++;
+	    }
+	}
+
+	neighborhoods.push_back(neighborhoods_lvl);
+	ANNkd_tree kd_tree(neighborhoods_lvl, neighborhood_count, neighborhood_dims);
+	kd_trees.push_back(kd_tree);
     }
 }
 

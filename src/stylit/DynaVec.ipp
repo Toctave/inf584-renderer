@@ -122,6 +122,7 @@ std::ostream& operator<<(std::ostream& out, const DynaVec<T>& v) {
 	out << v[i] << ", ";
     }
     out << ")";
+    return out;
 }
 
 template<typename T>
@@ -150,6 +151,11 @@ const DynaVec<T>& DynaVec<T>::extend(const T& u) {
 }
 
 template<typename T>
+const T* DynaVec<T>::data() const {
+    return co_.data();
+}
+
+template<typename T>
 T dot(const DynaVec<T>& lhs, const DynaVec<T>& rhs) {
     same_dim(lhs, rhs);
     
@@ -169,5 +175,4 @@ template<typename T>
 T norm(const DynaVec<T>& v) {
     return std::sqrt(v);
 }
-
 

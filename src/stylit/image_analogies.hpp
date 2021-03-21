@@ -6,11 +6,17 @@
 
 #include <vector>
 
+#include <ANN/ANN.h>
+
 typedef RGBColor Feature;
+
+const size_t FEATURE_DIM = 3;
 
 struct ImageAnalogySystem {
     size_t levels;
     float kappa;
+
+    std::vector<ANNpointArray> neighborhoods;
     
     std::vector<Buffer2D<Feature>> source_unfiltered;
     std::vector<Buffer2D<Feature>> source_filtered;
@@ -19,6 +25,7 @@ struct ImageAnalogySystem {
     std::vector<Buffer2D<Feature>> target_filtered;
 
     std::vector<Buffer2D<Vec2s>> assignments;
+    std::vector<ANNkd_tree> kd_trees;
     
     ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltered,
 		       const Buffer2D<Feature>& source_filtered,
@@ -26,3 +33,6 @@ struct ImageAnalogySystem {
 		       size_t levels,
 		       float kappa);
 };
+
+void solve(ImageAnalogySystem& system);
+
