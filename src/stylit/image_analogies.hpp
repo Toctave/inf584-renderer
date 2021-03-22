@@ -10,6 +10,10 @@
 
 typedef RGBColor Feature;
 
+// struct Feature {
+//     std::vector<RGBColor> channels;
+// };
+
 const size_t FEATURE_DIM = 3;
 
 struct ImageAnalogySystem {
@@ -34,5 +38,6 @@ struct ImageAnalogySystem {
 		       float kappa);
 };
 
-void solve(ImageAnalogySystem& system);
-
+Buffer2D<Feature> stylit(const Buffer2D<Feature>& source_unfiltered,
+			 const Buffer2D<Feature>& source_filtered,
+			 const Buffer2D<Feature>& target_unfiltered);

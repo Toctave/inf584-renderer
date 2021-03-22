@@ -114,20 +114,12 @@ best_coherence_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
     return best_candidate;
 }
 
-static bool in_bounds(const Buffer2D<Feature>& img, Vec2s p) {
-    return (p[0] < img.rows())
-	&& (p[1] < img.columns());
-}
-
 static float
 feature_diff_neighbourhood(const ImageAnalogySystem& system, size_t level, Vec2s p, Vec2s q) {
-    DynaVec<float> su = get_pyramid_neighborhood(system.source_unfiltered, level, p);
-    DynaVec<float> tu = get_pyramid_neighborhood(system.target_unfiltered, level, q);
+    DynaVec<float> s = get_source_neighborhood(system, level, p);
+    DynaVec<float> t = get_target_neighborhood(system, level, q);
 
-    DynaVec<float> sf = get_pyramid_neighborhood(system.source_filtered, level, p);
-    DynaVec<float> tf = get_pyramid_neighborhood(system.target_filtered, level, q);
-
-    return norm_squared(su - tu) + norm_squared(sf - tf);
+    return norm_squared(s - t);
 }
 
 static Vec2s
@@ -145,11 +137,11 @@ best_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
     }
 }
 
-void solve(ImageAnalogySystem& system) {
+static void solve(ImageAnalogySystem& system) {
     for (size_t l = system.levels - 2; l + 1 < system.levels; l--) {
 	Vec2s q;
-	for(q[0] = 0; q[0] < system.target_filtered[l].rows(); q[0]++) {
-	    for(q[1] = 0; q[1] < system.target_filtered[l].columns(); q[1]++) {
+	for(q[0] = 2; q[0] + 2 < system.target_filtered[l].rows(); q[0]++) {
+	    for(q[1] = 2; q[1] + 2 < system.target_filtered[l].columns(); q[1]++) {
 		Vec2s p = best_match(system, l, q);
 		system.target_filtered[l](q) = system.source_filtered[l](p);
 		system.assignments[l](q) = p;
@@ -174,7 +166,16 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 
     for (size_t i = 0; i < levels; i++) {
 	target_filtered.push_back(Buffer2D<Feature>(target_unfiltered[i].rows(), target_unfiltered[i].columns()));
-	assignments.push_back(Buffer2D<Vec2s>(target_unfiltered[i].rows(), target_unfiltered[i].columns()));
+	
+	Buffer2D<Vec2s> assgnt(target_unfiltered[i].rows(), target_unfiltered[i].columns());
+
+	Vec2s p;
+	for (p[0] = 0; p[0] < assgnt.rows(); p[0]++) {
+	    for (p[1] = 0; p[1] < assgnt.columns(); p[1]++) {
+		assgnt(p) = p;
+	    }
+	}
+	assignments.push_back(assgnt);
     }
 
     for (size_t lvl = 0; lvl + 1 < levels; lvl++) {
@@ -206,3 +207,12 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
     }
 }
 
+Buffer2D<Feature> stylit(const Buffer2D<Feature>& source_unfiltered,
+			 const Buffer2D<Feature>& source_filtered,
+			 const Buffer2D<Feature>& target_unfiltered) {
+    ImageAnalogySystem system(source_unfiltered, source_filtered, target_unfiltered, 5, 2.5f);
+
+    solve(system);
+
+    return system.target_filtered[0];
+}

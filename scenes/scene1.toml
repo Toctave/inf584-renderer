@@ -1,7 +1,7 @@
 [camera]
 fov = 45.0
 eye = [0.0, -8.0, 3.0]
-target = [0.0, 0.0, 1.0]
+target = [0.0, 0.0, 1.5]
 up = [0.0, 0.0, 1.0]
 
 
@@ -54,13 +54,22 @@ name = "light_mesh"
 type = "mesh"
 path = "studio_light.obj"
 
+[[primitives]]
+name = "ball"
+type = "sphere"
+center = [0.0, 0.0, 1.5]
+radius = 1.5
+
+# [[shapes]]
+# primitive = "dragon_mesh"
+# material = "glossy"
+# translate = [0.5, -0.5, 0.0]
+# rotate_axis = [0.0, 0.0, 1.0]
+# rotate_angle = 90.0
 
 [[shapes]]
-primitive = "dragon_mesh"
+primitive = "ball"
 material = "glossy"
-translate = [0.5, -0.5, 0.0]
-rotate_axis = [0.0, 0.0, 1.0]
-rotate_angle = 90.0
 
 [[shapes]]
 primitive = "plane_mesh"
