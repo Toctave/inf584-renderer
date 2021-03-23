@@ -38,6 +38,17 @@ float linear_to_srgb(float lin) {
     }
 }
 
+float srgb_to_linear(float srgb) {
+    if (srgb <= .04045f) {
+        return srgb / 12.92f;
+    } else if (srgb >= 1.0f) {
+        return 1.0f;
+    } else {
+        float a = .055f;
+        return std::pow((srgb + a) / (1.0f + a), 2.4f);
+    }
+}
+
 RGB8 RGBColor::to_8bit() const {
     float r = (*this)[0];
     float g = (*this)[1];
@@ -72,4 +83,12 @@ const RGBColor& RGBColor::operator*=(const RGBColor& rhs) {
 RGBColor operator*(const RGBColor& lhs, const RGBColor& rhs) {
     RGBColor result = lhs;
     return result *= rhs;
+}
+
+RGBColor srgb_to_linear(const RGB8& rgb8) {
+    return RGBColor(
+	static_cast<float>(rgb8.r) / 255.0f,
+	static_cast<float>(rgb8.g) / 255.0f,
+	static_cast<float>(rgb8.b) / 255.0f
+	);
 }

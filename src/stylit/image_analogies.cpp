@@ -11,13 +11,11 @@ static void extend(DynaVec<float>& v, const Feature& feature) {
 
 static DynaVec<float> get_neighborhood(const Buffer2D<Feature>& features, Vec2s p, size_t radius) {
     DynaVec<float> neigh;
-    Vec2s offset;
+    Vec2s nbp;
 
     // assume that the whole neighborhood fits into the image
-    for (offset[0] = -radius; offset[0] <= radius; offset[0]++) {
-	for (offset[1] = -radius; offset[1] <= radius; offset[1]++) {
-	    Vec2s nbp = p + offset;
-	    
+    for (nbp[0] = p[0] - radius; nbp[0] <= p[0] + radius; nbp[0]++) {
+	for (nbp[1] = p[1] - radius; nbp[1] <= p[1] + radius; nbp[1]++) {
 	    extend(neigh, features(nbp));
 	}
     }
@@ -139,8 +137,10 @@ best_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
 
 static void solve(ImageAnalogySystem& system) {
     for (size_t l = system.levels - 2; l + 1 < system.levels; l--) {
+	std::cout << "level " << l << "\n";
 	Vec2s q;
 	for(q[0] = 2; q[0] + 2 < system.target_filtered[l].rows(); q[0]++) {
+	    std::cout << "row " << q[0] << " / " << system.target_filtered[l].rows() << "\n";
 	    for(q[1] = 2; q[1] + 2 < system.target_filtered[l].columns(); q[1]++) {
 		Vec2s p = best_match(system, l, q);
 		system.target_filtered[l](q) = system.source_filtered[l](p);
@@ -155,7 +155,7 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 				       const Buffer2D<Feature>& target_unfiltered_img,
 				       size_t levels,
 				       float kappa)
-    : levels(levels), kappa(kappa) {
+    : levels(levels), kappa(kappa), kd_trees(levels - 1) {
     
     source_unfiltered =
 	build_gaussian_pyramid(source_unfiltered_img, levels);
@@ -179,20 +179,23 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
     }
 
     for (size_t lvl = 0; lvl + 1 < levels; lvl++) {
+
+	std::cout << "Building level " << lvl << "\n";
 	Vec2s p;
 
 	size_t neighborhood_count =
 	    (source_unfiltered[lvl].rows() - 4) * (source_unfiltered[lvl].columns() - 4);
 
-	size_t neighborhood_dims = FEATURE_DIM * (5 * 5 + 3 * 3);
+	size_t neighborhood_dims = 2 * FEATURE_DIM * (5 * 5 + 3 * 3);
 	ANNpoint* neighborhoods_lvl = new ANNpoint[neighborhood_count]; // TODO : delete this
 	float* coord_buffer = new float[neighborhood_count * neighborhood_dims]; // TODO : delete this
 
 	size_t nb_idx = 0;
 	for (p[0] = 2; p[0] + 2 < source_unfiltered[lvl].rows(); p[0]++) {
+	    std::cout << "Building row " << p[0] << "\n";
 	    for (p[1] = 2; p[1] + 2 < source_unfiltered[lvl].columns(); p[1]++) {
 		DynaVec<float> neigh = get_source_neighborhood(*this, lvl, p);
-		assert(neigh.dims() == neighborhood_dims);
+		assert(neigh.dim() == neighborhood_dims);
 
 		neighborhoods_lvl[nb_idx] = &coord_buffer[nb_idx * neighborhood_dims];
 		memcpy(neighborhoods_lvl[nb_idx], neigh.data(), sizeof(float) * neighborhood_dims);
@@ -202,15 +205,15 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 	}
 
 	neighborhoods.push_back(neighborhoods_lvl);
-	ANNkd_tree kd_tree(neighborhoods_lvl, neighborhood_count, neighborhood_dims);
-	kd_trees.push_back(kd_tree);
+	kd_trees[lvl] =
+	    ANNkd_tree(neighborhoods_lvl, neighborhood_count, neighborhood_dims);
     }
 }
 
 Buffer2D<Feature> stylit(const Buffer2D<Feature>& source_unfiltered,
 			 const Buffer2D<Feature>& source_filtered,
 			 const Buffer2D<Feature>& target_unfiltered) {
-    ImageAnalogySystem system(source_unfiltered, source_filtered, target_unfiltered, 5, 2.5f);
+    ImageAnalogySystem system(source_unfiltered, source_filtered, target_unfiltered, 6, 2.5f);
 
     solve(system);
 

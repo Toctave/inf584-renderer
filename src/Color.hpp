@@ -25,3 +25,5 @@ public:
 };
 
 RGBColor operator*(const RGBColor& lhs, const RGBColor& rhs);
+
+RGBColor srgb_to_linear(const RGB8& rgb8);

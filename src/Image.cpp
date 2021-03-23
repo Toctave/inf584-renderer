@@ -2,19 +2,40 @@
 
 #include <stdexcept>
 
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#pragma GCC diagnostic pop
 
 RGBFilm::RGBFilm(size_t width, size_t height, float filter_radius)
     : colors_(height, width), weights_(height, width), filter_radius_(filter_radius) {
 }
 
-Buffer2D<RGB8> to_rgb8(const Buffer2D<RGBColor> color) {
+Buffer2D<RGB8> to_rgb8(const Buffer2D<RGBColor>& color) {
     Buffer2D<RGB8> img(color.rows(), color.columns());
     
     for (size_t row = 0; row < color.rows(); row++) {
 	for (size_t col = 0; col < color.columns(); col++) {
 	    img(row, col) = color(row, col).to_8bit();
+	}
+    }
+
+    return img;
+}
+
+Buffer2D<RGBColor> to_rgbcolor(const Buffer2D<RGB8>& color) {
+    Buffer2D<RGBColor> img(color.rows(), color.columns());
+    
+    for (size_t row = 0; row < color.rows(); row++) {
+	for (size_t col = 0; col < color.columns(); col++) {
+	    img(row, col) = srgb_to_linear(color(row, col));
 	}
     }
 
@@ -153,6 +174,20 @@ void write_png(const Buffer2D<RGB8>& colors, std::ostream& out) {
 			   colors.data(),
 			   colors.columns() * sizeof(RGB8));
 }
+
+Buffer2D<RGB8> read_png(const std::string& filepath) {
+    int x, y;
+    unsigned char* data = stbi_load(filepath.c_str(), &x, &y, nullptr, 3);
+
+    Buffer2D<RGB8> result(x, y);
+
+    memcpy(&result(0, 0), data, x * y * sizeof(RGB8));
+
+    stbi_image_free(data);
+
+    return result;
+}
+
 
 size_t RGBFilm::width() const {
     return colors_.columns();

@@ -27,6 +27,8 @@
 #include "stylit/stylit.hpp"
 #include "TOMLParser.hpp"
 
+#include "stylit/image_analogies.hpp"
+
 struct Options {
     size_t width;
     size_t height;
@@ -400,12 +402,33 @@ void display(SyncData& sync, const std::vector<RGBFilm>& output_images, const Op
 }
 
 int main(int argc, char** argv) {
+    if (argc != 5) {
+	return 1;
+    }
+    
+    Buffer2D<RGB8> su8 = read_png(argv[1]);
+    Buffer2D<RGB8> sf8 = read_png(argv[2]);
+    Buffer2D<RGB8> tu8 = read_png(argv[3]);
+    
+    Buffer2D<RGBColor> tf =
+	stylit(to_rgbcolor(su8),
+	       to_rgbcolor(sf8),
+	       to_rgbcolor(tu8));
+    
+    std::ofstream output_file(argv[4]);
+	
+    write_png(to_rgb8(tf), output_file);
+    
+    return 0;
+}
+
+int main_(int argc, char** argv) {
     Options options = parse_options(argc, argv);
     std::vector<RGBFilm> output_images;
     for (size_t i = 0; i < options.light_paths.size(); i++) {
 	output_images.push_back(RGBFilm(options.width, options.height, options.filter_radius));
     }
-    
+
     TOMLParser parser(options.scene_file, static_cast<float>(options.width) / options.height);
     
     SDL_Init(SDL_INIT_VIDEO);

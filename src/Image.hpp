@@ -47,7 +47,10 @@ Buffer2D<T> resized(const Buffer2D<T>& buffer, size_t new_rows, size_t new_colum
     return new_buffer;
 }
 
-Buffer2D<RGB8> to_rgb8(const Buffer2D<RGBColor> color);
+Buffer2D<RGB8> to_rgb8(const Buffer2D<RGBColor>& color);
+Buffer2D<RGBColor> to_rgbcolor(const Buffer2D<RGB8>& color);
+
+Buffer2D<RGB8> read_png(const std::string& filepath);
 
 class RGBFilm {
 private:
