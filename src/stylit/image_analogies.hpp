@@ -40,4 +40,7 @@ struct ImageAnalogySystem {
 
 Buffer2D<Feature> stylit(const Buffer2D<Feature>& source_unfiltered,
 			 const Buffer2D<Feature>& source_filtered,
-			 const Buffer2D<Feature>& target_unfiltered);
+			 const Buffer2D<Feature>& target_unfiltered,
+			 size_t levels,
+			 float kappa);
+void solve(ImageAnalogySystem& system);
