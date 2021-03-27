@@ -6,7 +6,7 @@
 struct Ray {
     Vec3 o;
     Vec3 d;
-    float tmax;
+    mutable float tmax;
 
     static Ray segment(Vec3 v1, Vec3 v2) {
         Ray result(v1, v2 - v1);

@@ -26,6 +26,7 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray) {
     // On calcule t pour savoir ou le point d'intersection se situe sur la ligne.
     float t = f * dot(edge2, q);
     if (t > 0.0f && t < ray.tmax) {
+	ray.tmax = t;
         return true;
     } else {
         return false;
@@ -58,6 +59,7 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
             (u * (triangle.normals[1])
              + v * (triangle.normals[2])
              + (1.0f - u - v) * (triangle.normals[0])).normalized();
+	ray.tmax = t;
         return true;
     } else {
         return false;
@@ -189,28 +191,16 @@ bool bvh_intersect(const TriangleMesh& mesh,
     if (node->is_leaf()) {
         bool any_hit = false;
         for (size_t idx : node->indices()) {
-            Intersect tri_itx;
             bool hit = triangle_ray_intersect(mesh.triangle(idx),
                                               ray,
-                                              tri_itx
+                                              itx
                                               );
-            if (hit && tri_itx.t < itx.t) {
-                itx = tri_itx;
-                any_hit = true;
-            }
+	    any_hit = any_hit || hit;
         }
         return any_hit;
     } else {
-        Intersect left_itx;
-        bool left_hit = bvh_intersect(mesh, node->left(), ray, left_itx);
-        if (left_hit && left_itx.t < itx.t) {
-            itx = left_itx;
-        }
-        Intersect right_itx;
-        bool right_hit = bvh_intersect(mesh, node->right(), ray, right_itx);
-        if (right_hit && right_itx.t < itx.t) {
-            itx = right_itx;
-        }
+        bool left_hit = bvh_intersect(mesh, node->left(), ray, itx);
+        bool right_hit = bvh_intersect(mesh, node->right(), ray, itx);
         return right_hit || left_hit;
     }
 }
