@@ -1,0 +1,49 @@
+#+TITLE: INF584 report - StyLit
+#+AUTHOR: Octave Crespel
+#+OPTIONS: toc:nil
+
+#+LaTeX_CLASS_OPTIONS: [a4paper, twocolumn]
+
+* Introduction
+
+As an extension to the pathtracer I developed during the INF584 practical sessions, I decided to explore the paper /StyLit : Illumination-Guided Example-Based Stylization of 3D Renderings/. While I did not implement the technique in its entirety, I wrote implementations of some key parts in C++. 
+
+* Overview of the /StyLit/ technique
+
+This paper is heavily based on a 2001 paper called /Image Analogies/, by Hertzmann et al. As such, I will first go over the material in /Image Analogies/, then describe the main improvements brought forward by the StyLit team. 
+
+
+** Image Analogies
+
+Image analogies are a framework for processing images based on example. It operates on four images $A$, $A'$, $B$, and $B'$, which are such that "$B'$ is to $B$ what $A'$ is to $A$". The authors use the notation $B' : B :: A' : A$ to describe that relationship.
+
+The algorithm proposed by Hertzmann et al. synthesizes $B'$ from $A$, $A'$ and $B$. This high-level approach has a number of applications, such as image filtering, image synthesis, or style transposition : for instance, 
+
+- if $A'$ is a blurred version of $A$, then it is expected that the algorithm will produce an image $B'$ that is a blurred version of $B$.  
+- if $A'$ is a picture of a landscape, with features described by a discrete set of colors in $A$, then $B'$ is expected to be another landscape whose features are described by the colors in $B$.
+- if $A'$ is an artist's rendition of a picture $A$, then $B'$ is expected to represent the picture B with the same stylistic features as those in $A'$.
+
+The algorithm operates by constructing $B'$ with samples taken from $A'$, which are chosen using two main approaches. Suppose that we would like to synthesize an image patch in $B'$ located around a given pixel $q$ : 
+
+1) if an image patch in $A$, around some pixel $p$, much resembles the image patch in $B$ that is located around $q$, then an image patch in $A'$ that surrounds pixel $p$ is a good candidate for our target image patch around $q$ in $B'$.
+2) if the image patch in $B'$ around some $q + \delta$ (a pixel close to $q$) has already been synthesized from an image patch around $p$ in  $A'$, then the image patch in $A'$ that surrounds $p - \delta$ is a suitable candidate for our target patch.
+
+These two strategies optimize for two desirable qualities in the synthesized image : (1) creates patches that locally fit the image analogy framework ($B' : B :: A' : A$), whereas (2) preserves spatial coherence in the final image. Strategy (1) is implemented with a nearest neighbor search over all image patches in $A$, whereas brute-force is employed for (2), with $\delta$ taking all integer values in the range $[-r, r]^2$, with $r = 1$ or $2$.
+
+These strategies are applied at increasing resolutions : in effect, the algorithm uses mip-map pyramids of $A$, $A'$, and $B'$ to produce a mip-map pyramid of $B'$. At each resolution, the target patches are synthesized in scan-line order. Both strategies are used to compute a candidate patch, and one of them is chosen as the definitive solution based on : 
+
+- How close the patches match,
+- The resolution level. Indeed, prioritizing strategy 2 at higher resolutions means that high-frequency detail such as brush strokes will be preserved, while broader regions in the image will better maintain the image analogy,
+- And a user-provided bias : depending on the application, one might prefer to prioritize either strategy.
+
+While this framework does not dictate how the distance of image patches should be computed, the original authors work with RGB images and use the euclidean norm in the CIE XYZ color space as a measure of perceptual difference.
+
+** StyLit
+
+StyLit is an implementation of the Image Analogies framework that focuses on one specific use case : the stylization of pathtraced 3D renders. Here, $A$ and $B$ are pathtraced renders of two 3D scenes, and $A'$ and $B'$ are stylized versions of those renders. As such, it makes several improvements to the original technique to better fit this problem : 
+
+- While it still uses RGB images for $A'$ and $B'$, $A$ and $B$ are multi-channel images representing light path expressions passes of the 3D renders. Intuitively, this means that the algorithm can generate the target image in a similar way to what an artist does : different styles or colors can be chosen based on the contributions of direct diffuse illumination ($\texttt{LDE}$), specular highlights ($\texttt{LSE}$), bounce lighting ($\texttt{L.*DDE}$), or even caustics ($\texttt{L.*SDE}$). 
+- StyLit uses a more elaborate optimization procedure : rather than using either strategy 1 or 2, both are used and the resulting patches are averaged together. Furthermore, to avoid the wash-out effect that this average creates, the assignment of patches from $A'$ onto $B'$ is carefully controlled. Patch reuse is initially disabled. Once a suitable assignment has been found for all patches in $B'$, these assignments are sorted by increasing error. Assignments whose error is higher than an empirical threshold are cancelled, whereas those whose error is below are validated. The procedure is then restarted for the cancelled patches, up until all the patches in the final image have been assigned. This system enforces uniform patch usage as long as it does not degrade the image quality : for instance, if the specular highlights in $B'$ the target image occupy a larger area than in $A'$, enforcing uniform patch usage would fill highlights with samples taken from elsewhere in the image.
+
+
+* 
