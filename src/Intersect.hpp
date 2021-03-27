@@ -8,8 +8,6 @@ class Shape;
 class Material;
 
 struct Intersect {
-    float t;
-
     Vec3 point;
     Vec3 wo;
     
@@ -22,8 +20,7 @@ struct Intersect {
     // Vec2 uv;
 
     Intersect()
-        : t(INFTY),
-          shape(nullptr),
+        : shape(nullptr),
           material(nullptr) {
     }
 

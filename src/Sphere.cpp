@@ -27,12 +27,14 @@ bool Sphere::ray_intersect(const Ray& ray) const {
     float t0 = (-b - sqdisc) / (2.0f * a);
 
     if (t0 >= 0.0f && t0 < ray.tmax) {
+	ray.tmax = t0;
         return true;
     }
 
     float t1 = (-b + sqdisc) / (2.0f * a);
 
     if (t1 >= 0.0f && t1 < ray.tmax) {
+	ray.tmax = t1;
         return true;
     }
 
@@ -61,18 +63,18 @@ bool Sphere::ray_intersect(const Ray& ray, Intersect& intersect) const {
 
     if (t0 >= 0.0f && t0 < ray.tmax) {
         hit = true;
-        intersect.t = t0;
+	ray.tmax = t0;
     } else {
         float t1 = (-b + sqdisc) / (2.0f * a);
 
         if (t1 >= 0.0f && t1 < ray.tmax) {
             hit = true;
-            intersect.t = t1;
+	    ray.tmax = t1;
         }
     }
 
     if (hit) {
-        Vec3 point = ray.at(intersect.t);
+        Vec3 point = ray.target();
         intersect.normal = (point - center_) / radius_;
     }
 

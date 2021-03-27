@@ -6,7 +6,7 @@ bool Scene::ray_intersect(Ray& ray, Intersect& itx) const {
     bool result = false;
     for (const Shape* shape : shapes_) {
         if (shape->ray_intersect(ray, itx)) {
-            ray.tmax = itx.t;
+	    assert(ray.tmax < INFTY);
             result = true;
         }
     }
@@ -17,6 +17,7 @@ bool Scene::ray_intersect(Ray& ray, Intersect& itx) const {
 bool Scene::ray_intersect(const Ray& ray) const {
     for (const Shape* shape : shapes_) {
         if (shape->ray_intersect(ray)) {
+	    assert(ray.tmax < INFTY);
             return true;
         }
     }

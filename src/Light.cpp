@@ -46,7 +46,7 @@ LightSample AreaLight::sample(const Vec3& point) const {
         );
     }
 
-    on_light = itx_ray.at(itx.t);
+    on_light = itx_ray.target();
 
     Vec3 wi = (on_light - point).normalized();
     float solid_angle_pdf = pdf * norm_squared(on_light - point)

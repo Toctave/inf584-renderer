@@ -149,7 +149,7 @@ std::vector<LightTree*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounc
 		
 		float cosine_factor = dot(wi, itx.normal);
 	    
-		Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
+		Ray bounce(ray.target() + EPSILON * itx.normal,
 			   wi);
 
 		RGBColor f = brdf->f(itx,
@@ -402,7 +402,7 @@ void display(SyncData& sync, const std::vector<RGBFilm>& output_images, const Op
     SDL_DestroyWindow(window);
 }
 
-int main_(int argc, char** argv) {
+int main(int argc, char** argv) {
     Options options = parse_options(argc, argv);
     std::vector<RGBFilm> output_images;
     for (size_t i = 0; i < options.light_paths.size(); i++) {
@@ -507,7 +507,7 @@ int stylit_thread(void* data) {
     return 0;
 }
 
-int main(int argc, char** argv) {
+int main_(int argc, char** argv) {
     if (argc != 7) {
 	return 1;
     }
