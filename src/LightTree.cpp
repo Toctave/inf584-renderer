@@ -1,9 +1,5 @@
 #include "LightTree.hpp"
 
-RGBColor LightTree::radiance_channel(const LightPathExpression& channel) const {
-    return radiance_channel(channel, channel.length() - 1, true);
-}
-
 LightTree::LightTree(SurfaceType type, const RGBColor& emitted)
     : type_(type), emitted_(emitted) {
 }
@@ -37,49 +33,60 @@ LightTree::~LightTree() {
     }
 }
 
-RGBColor LightTree::radiance_channel(const LightPathExpression& channel, int offset, bool include_emitted) const {
-    if (offset < 0) {
-	return RGBColor();
-    }
-
-    RGBColor transmitted;
-
-    if (channel[offset] == SurfaceType::REPEAT) {
-	for (size_t i = 0; i < upstream_.size(); i++) {
-	    transmitted += attenuations_[i] 
-		* (upstream_[i]->radiance_channel(channel, offset - 1, true)
-		   + upstream_[i]->radiance_channel(channel, offset, false));
-	}
-    } else if (channel[offset] == type_ || channel[offset] == SurfaceType::ANY) {
-	for (size_t i = 0; i < upstream_.size(); i++) {
-	    transmitted += attenuations_[i] * upstream_[i]->radiance_channel(channel, offset - 1, true);
-	}
-    } else {
-	return RGBColor();
-    }
+void LightTree::print(std::vector<bool>& last_child) const {
+    char c = surface_type_to_char(type_);
     
-    if (upstream_.size() > 0) {
-	transmitted /= upstream_.size();
-    }
-
-    if (include_emitted) {
-	return transmitted + emitted_;
-    } else {
-	return transmitted;
-    }
-}
-
-void LightTree::print(const std::string& suffix) const {
-    std::string more = surface_type_to_char(type_) + suffix;
-    if (type_ == LIGHT && upstream_.size() == 0) {
-	std::cout << more << "\n";
-    } else {
-	for (const LightTree* tree : upstream_) {
-	    tree->print(more);
+    for (size_t i = 0; i < last_child.size(); i++) {
+	if (i + 1 == last_child.size()) {
+	    std::cout << "+-";
+	} else if (last_child[i]) {
+	    std::cout << "  ";
+	} else {
+	    std::cout << "| ";
 	}
+    }
+    std::cout << c;
+    std::cout << "\n";
+
+    for (size_t i = 0; i < upstream_.size(); i++) {
+	last_child.push_back((i + 1) == upstream_.size());
+	upstream_[i]->print(last_child);
+	last_child.pop_back();
     }
 }
 
 void LightTree::print() const {
-    print("");
+    std::vector<bool> b;
+    print(b);
+}
+
+
+void LightTree::get_all_radiances(
+    LightPathExpression& base,
+    std::vector<std::pair<LightPathExpression, RGBColor>>& radiances,
+    RGBColor attenuation
+    ) const {
+    base.push_back(type_);
+    radiances.push_back(std::make_pair(base, emitted_ * attenuation));
+
+    for (size_t i = 0; i < upstream_.size(); i++) {
+	RGBColor att = attenuation * attenuations_[i] / static_cast<float>(upstream_.size());
+	upstream_[i]->get_all_radiances(base, radiances, att);
+    }
+    
+    base.pop_back();
+}
+
+
+std::vector<std::pair<LightPathExpression, RGBColor>>
+LightTree::get_all_radiances() const {
+    LightPathExpression base;
+    std::vector<std::pair<LightPathExpression, RGBColor>> radiances;
+    get_all_radiances(base, radiances, RGBColor::gray(1.0f));
+
+    for (auto& p : radiances) {
+	p.first.reverse();
+    }
+
+    return radiances;
 }
