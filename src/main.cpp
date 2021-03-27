@@ -298,8 +298,15 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
 		    eye_tree->add_upstream(tree);
 		}
 
+		auto all_radiances = eye_tree->get_all_radiances();
+		
 		for (size_t i = 0; i < options.light_paths.size(); i++) {
-		    RGBColor radiance = eye_tree->LightTree::radiance_channel(options.light_paths[i]);
+		    RGBColor radiance;
+		    for (const auto& p : all_radiances) {
+			if (match(options.light_paths[i], p.first)) {
+			    radiance += p.second;
+			} 
+		    }
 		    output_images[i].add_sample(image_sample, radiance);
 		}
 

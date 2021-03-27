@@ -11,10 +11,18 @@ private:
     std::vector<SurfaceType> surface_types_;
 
 public:
+    LightPathExpression();
     LightPathExpression(const std::string& bounces);
 
     SurfaceType operator[](size_t idx) const;
     size_t length() const;
+
+    void push_back(const SurfaceType& surface_type);
+    void pop_back();
+
+    void reverse();
 };
 
 std::ostream& operator<<(std::ostream& out, const LightPathExpression& expr);
+
+bool match(const LightPathExpression& pattern, const LightPathExpression& expr);
