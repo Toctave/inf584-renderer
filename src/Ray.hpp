@@ -22,4 +22,8 @@ struct Ray {
     Vec3 at(float t) const {
         return o + t * d;
     }
+
+    Vec3 target() const {
+	return at(tmax);
+    }
 };

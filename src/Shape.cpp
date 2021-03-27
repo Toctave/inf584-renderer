@@ -26,13 +26,16 @@ bool Shape::ray_intersect(const Ray& ray, Intersect& intersect) const {
     
     if (result) {
 	intersect.normal = transform_normal(transform_, intersect.normal);
-        intersect.point = transform_point(transform_, transformed_ray.at(intersect.t));
+        intersect.point = transform_point(transform_, transformed_ray.target());
         intersect.wo = transform_vector(transform_, -transformed_ray.d);
         intersect.shape = this;
         intersect.material = material_;
 
 	intersect.normal.normalize();
 	intersect.wo.normalize();
+
+	ray.tmax = transformed_ray.tmax;
+	assert(ray.tmax < INFTY);
     }
 
     return result;
@@ -41,7 +44,12 @@ bool Shape::ray_intersect(const Ray& ray, Intersect& intersect) const {
 bool Shape::ray_intersect(const Ray& ray) const {
     Ray transformed_ray = transform_ray(transform_.inverse(), ray);
     
-    return primitive_->ray_intersect(transformed_ray);
+    if (primitive_->ray_intersect(transformed_ray)) {
+	ray.tmax = transformed_ray.tmax;
+	return true;
+    } else {
+	return false;
+    }
 }
 
 void Shape::set_transform(const Transform& transform) {

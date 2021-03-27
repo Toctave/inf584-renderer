@@ -54,7 +54,6 @@ bool triangle_ray_intersect(const Triangle& triangle, const Ray& ray, Intersect&
     // On calcule t pour savoir ou le point d'intersection se situe sur la ligne.
     float t = f * dot(edge2, q);
     if (t > 0.0f && t < ray.tmax) {
-        intersect.t = t;
         intersect.normal =
             (u * (triangle.normals[1])
              + v * (triangle.normals[2])
@@ -170,6 +169,7 @@ bool bvh_intersect(const TriangleMesh& mesh,
         for (size_t idx : node->indices()) {
             if (triangle_ray_intersect(mesh.triangle(idx),
                                        ray)) {
+		assert(ray.tmax < INFTY);
                 return true;
             }
         }
@@ -187,7 +187,6 @@ bool bvh_intersect(const TriangleMesh& mesh,
     if (!node->box().ray_intersect(ray)) {
         return false;
     }
-    // @TODO : make this cleaner (no tmp Intersect object)
     if (node->is_leaf()) {
         bool any_hit = false;
         for (size_t idx : node->indices()) {
@@ -197,20 +196,30 @@ bool bvh_intersect(const TriangleMesh& mesh,
                                               );
 	    any_hit = any_hit || hit;
         }
+	assert(!any_hit || ray.tmax < INFTY);
         return any_hit;
     } else {
         bool left_hit = bvh_intersect(mesh, node->left(), ray, itx);
         bool right_hit = bvh_intersect(mesh, node->right(), ray, itx);
+	assert(!(right_hit || left_hit) || ray.tmax < INFTY);
         return right_hit || left_hit;
     }
 }
 
 bool TriangleMesh::ray_intersect(const Ray& ray) const {
-    return bvh_intersect(*this, bvh_, ray);
+    bool result = bvh_intersect(*this, bvh_, ray);
+    
+    assert(!result || ray.tmax < INFTY);
+    
+    return result;
 }
 
 bool TriangleMesh::ray_intersect(const Ray& ray, Intersect& intersect) const {
-    return bvh_intersect(*this, bvh_, ray, intersect);
+    bool result = bvh_intersect(*this, bvh_, ray, intersect);
+
+    assert(!result || ray.tmax < INFTY);
+
+    return result;
 }
 
 Vec3 TriangleMesh::sample(float& pdf) const {

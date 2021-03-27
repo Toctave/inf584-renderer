@@ -149,7 +149,7 @@ std::vector<LightTree*> trace_ray(const Scene& scene, Ray& ray, size_t max_bounc
 		
 		float cosine_factor = dot(wi, itx.normal);
 	    
-		Ray bounce(ray.at(itx.t) + EPSILON * itx.normal,
+		Ray bounce(ray.target() + EPSILON * itx.normal,
 			   wi);
 
 		RGBColor f = brdf->f(itx,
