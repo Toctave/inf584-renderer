@@ -9,10 +9,10 @@ add_subdirectory(src/extern/ann_1.1.2/)
 # use toml11
 add_subdirectory(toml11)
 
-add_executable(${PROJECT_NAME})
-
-target_include_directories(${PROJECT_NAME} PRIVATE ./src/extern/ann_1.1.2/include toml11)
-target_sources(${PROJECT_NAME} PRIVATE
+# target renderer
+add_executable(renderer)
+target_include_directories(renderer PRIVATE ./src/extern/ann_1.1.2/include toml11 src/extern)
+target_sources(renderer PRIVATE
   src/main.cpp
   src/Color.cpp
   src/Image.cpp
@@ -33,15 +33,30 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/Transform.cpp
   src/LightPathExpression.cpp
   src/TOMLParser.cpp
-  src/stylit/FeatureVector.cpp
-  src/stylit/image_analogies.cpp
+  src/display.cpp
   )
-
 
 find_package(OpenMP REQUIRED)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX SDL2 ann toml11)
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wno-unused-parameter)
+target_link_libraries(renderer PRIVATE OpenMP::OpenMP_CXX SDL2 toml11)
+set(WARNING_OPTIONS -Wall -Wextra -Wno-unused-parameter)
+target_compile_options(renderer PRIVATE ${WARNING_OPTIONS})
 
-target_include_directories(${PROJECT_NAME} PRIVATE src/extern)
+
+# target stylit
+add_executable(stylit)
+
+target_include_directories(stylit PRIVATE ./src/extern/ann_1.1.2/include src/extern)
+target_sources(stylit PRIVATE
+  src/stylit/main.cpp
+  src/stylit/FeatureVector.cpp
+  src/stylit/image_analogies.cpp
+  src/stylit/stylit.cpp
+  src/Color.cpp
+  src/Image.cpp
+  src/constants.cpp
+  src/display.cpp
+  )
+target_link_libraries(stylit PRIVATE SDL2 ann)
+target_compile_options(stylit PRIVATE ${WARNING_OPTIONS})
 

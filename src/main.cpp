@@ -26,6 +26,8 @@
 #include "LightTree.hpp"
 #include "stylit/stylit.hpp"
 #include "TOMLParser.hpp"
+#include "util.hpp"
+#include "display.hpp"
 
 #include "stylit/image_analogies.hpp"
 
@@ -44,26 +46,6 @@ struct Options {
 
     std::vector<LightPathExpression> light_paths;
 };
-
-std::string timestamp()
-{
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_t = std::chrono::system_clock::to_time_t(now);
-
-    std::stringstream sstream;
-    sstream << std::put_time(std::localtime(&now_t), "%Y-%m-%d-%H.%M");
-    
-    return sstream.str();
-}
-
-template<typename T>
-T parse(const std::string& s) {
-    T v;
-    std::stringstream sstream(s);
-    sstream >> v;
-    return v;
-}
-
 
 void print_usage_string() {
     std::cerr << "Usage : ./renderer [-w width] [-h height] [-s sample_count] scene_file [light paths...]\n";
@@ -199,16 +181,6 @@ float radians(float deg) {
     return M_PI * deg / 180.0f;
 }
 
-void draw_image(const Buffer2D<RGB8>& image, SDL_Surface* surface, size_t dx, size_t dy) {
-    for (size_t row = 0; row < image.rows(); row++) {
-	for (size_t col = 0; col < image.columns(); col++) {
-	    RGB8 pixel8 = image(row, col);
-	    uint32_t* surface_pixel = ((uint32_t*)surface->pixels) + (row + dy) * surface->w + col + dx;
-	    *surface_pixel = SDL_MapRGB(surface->format, pixel8.r, pixel8.g, pixel8.b);
-	}
-    }
-}
-
 double now() {
     static auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -257,26 +229,6 @@ std::string formatted_time(double seconds) {
     return ss.str();
 }
 
-void blit_fit(SDL_Surface* src, SDL_Surface* dst) {
-    SDL_Rect dst_rect = {0, 0, dst->w, dst->h};
-    SDL_FillRect(dst, &dst_rect, SDL_MapRGB(dst->format, 0, 0, 0));
-    
-    if (src->w * dst->h < dst->w * src->h) {
-    	dst_rect.w = dst_rect.h * src->w / src->h;
-    	dst_rect.x = (dst->w - dst_rect.w) / 2;
-    } else {
-    	dst_rect.h = dst_rect.w * src->h / src->w;
-    	dst_rect.y = (dst->h - dst_rect.h) / 2;
-    }
-    
-    SDL_BlitScaled(src, NULL, dst, &dst_rect);
-}
-
-struct SyncData {
-    bool quit;
-    SDL_mutex* mtx;
-};
-
 void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& options, const Scene& scene, const Camera& camera) {
     size_t samples_taken = 0;
     bool need_quit = false;
@@ -285,7 +237,7 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
     double last_time = t0;
 
     while (samples_taken < options.sample_count && !need_quit) {
-#pragma omp parallel for schedule(static, 1)
+#pragma omp parallel for schedule(static, 4)
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
 		Vec2 image_sample = get_image_sample(row, col, options.width, options.height, samples_taken);
@@ -446,103 +398,4 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 0;
 }
-
-struct StylitThreadData {
-    SyncData& sync;
-    ImageAnalogySystem& system;
-};
-
-void display_(SyncData& sync, const ImageAnalogySystem& system) {
-    SDL_Window* window =
-	SDL_CreateWindow("renderer",
-			 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-			 640, 480,
-			 SDL_WINDOW_RESIZABLE);
-    
-    bool quit = false;
-    size_t lvl = 0;
-    
-    while (!quit) {
-	size_t w = std::max(system.source_unfiltered[lvl].columns(), system.target_unfiltered[lvl].columns());
-	size_t h = std::max(system.source_unfiltered[lvl].rows(), system.target_unfiltered[lvl].rows());
-	SDL_Surface* surf = SDL_CreateRGBSurface(0,
-						 2 * w, 2 * h, 32, 0, 0, 0, 0);
-	
-	SDL_Rect rect{0, 0, 2 * w, 2 * h};
-	SDL_FillRect(surf, &rect, 0);
-	
-	draw_image(to_rgb8(system.source_unfiltered[lvl]), surf, 0, 0);
-	draw_image(to_rgb8(system.source_filtered[lvl]), surf, w, 0);
-	draw_image(to_rgb8(system.target_unfiltered[lvl]), surf, 0, h);
-	draw_image(to_rgb8(system.target_filtered[lvl]), surf, w, h);
-	
-	SDL_Surface* winsurf = SDL_GetWindowSurface(window);
-	blit_fit(surf, winsurf);
-	SDL_FreeSurface(surf);
-	
-	SDL_Event evt;
-	while (SDL_PollEvent(&evt)) {
-	    if (evt.type == SDL_QUIT) {
-		SDL_LockMutex(sync.mtx);
-		sync.quit = true;
-		SDL_UnlockMutex(sync.mtx);
-
-		quit = true;
-	    }
-	    if (evt.type == SDL_KEYDOWN)
-		switch (evt.key.keysym.sym) {
-		case SDLK_RIGHT:
-		    lvl = (lvl + 1) % system.target_filtered.size();
-		    break;
-		case SDLK_LEFT:
-		    lvl = (lvl + system.target_filtered.size() - 1) % system.target_filtered.size();
-		    break;
-	    }
-	}
-
-	SDL_UpdateWindowSurface(window);
-    }
-    
-    SDL_DestroyWindow(window);
-}
-
-int stylit_thread(void* data) {
-    StylitThreadData* thread_data = static_cast<StylitThreadData*>(data);
-    
-    solve(thread_data->system);
-    
-    return 0;
-}
-
-int main_(int argc, char** argv) {
-    if (argc != 7) {
-	return 1;
-    }
-
-    SDL_Init(SDL_INIT_VIDEO);
-    SyncData sync{ false, SDL_CreateMutex() };
-    
-    Buffer2D<RGB8> su8 = read_png(argv[1]);
-    Buffer2D<RGB8> sf8 = read_png(argv[2]);
-    Buffer2D<RGB8> tu8 = read_png(argv[3]);
-    
-    ImageAnalogySystem system(to_rgbcolor(su8),
-			      to_rgbcolor(sf8),
-			      to_rgbcolor(tu8),
-			      parse<size_t>(argv[5]),
-			      parse<float>(argv[6]));
-
-    StylitThreadData thread_data{sync, system};
-
-    SDL_Thread* thread = SDL_CreateThread(stylit_thread, "stylit", &thread_data);
-    display_(sync, system);
-
-    SDL_WaitThread(thread, nullptr);
-
-    std::ofstream output_file(argv[4]);
-    write_png(to_rgb8(system.target_filtered[0]), output_file);
-    
-    return 0;
-}
-
 
