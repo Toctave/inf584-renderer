@@ -106,7 +106,7 @@ static Eigen::ArrayXXf get_neighborhood(
 	    fine_radius);
     }
 
-    return neigh_unfiltered;
+    // return neigh_unfiltered;
     return concat(neigh_unfiltered, neigh_filtered);
 }
 
@@ -304,17 +304,6 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 	    (source.unfiltered[lvl].rows() - 4) * (source.unfiltered[lvl].columns() - 4);
 
 	size_t neighborhood_dims = FEATURE_DIM * fine_area;
-	// if (lvl + 1 < levels) {
-	//     neighborhood_dims =
-	//     FEATURE_DIM * (
-	// 	(coarse_area + fine_area)
-	// 	+ (coarse_area + fine_diameter * fine_radius + fine_radius));
-	// } else {
-	//     neighborhood_dims = 
-	//     FEATURE_DIM * (
-	// 	fine_area
-	// 	+ (fine_diameter * fine_radius) + fine_radius);
-	// }
 	ANNpoint* neighborhoods_lvl = new ANNpoint[neighborhood_count]; // TODO : delete this
 	float* coord_buffer = new float[neighborhood_count * neighborhood_dims]; // TODO : delete this
 
