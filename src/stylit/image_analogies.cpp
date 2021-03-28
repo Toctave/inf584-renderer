@@ -55,11 +55,12 @@ static Eigen::ArrayXXf get_bilevel_neighborhood(
     const std::vector<Buffer2D<Feature>>& features,
     size_t base_level,
     Vec2s p) {
-    
+
+    Vec2s p_lower = p / 2ul;
     return concat(
 	get_neighborhood(
 	    features[base_level + 1],
-	    p / 2ul,
+	    p_lower,
 	    coarse_radius),
 	get_neighborhood(
 	    features[base_level],
@@ -105,6 +106,7 @@ static Eigen::ArrayXXf get_neighborhood(
 	    fine_radius);
     }
 
+    return neigh_unfiltered;
     return concat(neigh_unfiltered, neigh_filtered);
 }
 
@@ -146,18 +148,20 @@ static Vec2s source_pixel_from_idx(const ImageAnalogySystem& system, size_t leve
 }
 
 static Vec2s
-best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q, float* best_dist2) {
-    static const float eps = .0f; // TODO : pick a value for eps
-    Eigen::ArrayXXf query = get_neighborhood(system.target, level, q);
+best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q, float& dist2_out) {
+    static const float eps = .1f; // TODO : pick a value for eps
+    Eigen::ArrayXXf query = get_neighborhood(
+	system.target.unfiltered[level], q, fine_radius
+	);
     ANNidx result_idx;
     
     // libANN does not use const qualifiers, have to cast away constness here :
-    const_cast<ANNbruteForce&>(system.kd_trees[level])
+    const_cast<ANNkd_tree&>(system.kd_trees[level])
 	.annkSearch(
 	    query.data(),
 	    1,
 	    &result_idx,
-	    best_dist2,
+	    &dist2_out,
 	    eps);
 
     Vec2s result = source_pixel_from_idx(system, level, result_idx);
@@ -165,7 +169,7 @@ best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q, 
 }
 
 static Vec2s
-best_coherence_match(const ImageAnalogySystem& system, size_t level, Vec2s q, float* dist2_out) {
+best_coherence_match(const ImageAnalogySystem& system, size_t level, Vec2s q, float& dist2_out) {
     Vec2s candidate;
     Vec2s best_candidate;
     float best_dist2 = INFTY;
@@ -195,10 +199,7 @@ best_coherence_match(const ImageAnalogySystem& system, size_t level, Vec2s q, fl
     }
 
     assert(best_dist2 < INFTY);
-
-    if (dist2_out) {
-	*dist2_out = best_dist2;
-    }
+    dist2_out = best_dist2;
     
     return best_candidate;
 }
@@ -207,8 +208,8 @@ static Vec2s
 best_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
     float d_app, d_coh;
     
-    Vec2s p_app = best_approximate_match(system, level, q, &d_app);
-    Vec2s p_coh = best_coherence_match(system, level,  q, &d_coh);
+    Vec2s p_app = best_approximate_match(system, level, q, d_app);
+    Vec2s p_coh = best_coherence_match(system, level,  q, d_coh);
 
     if (d_coh < d_app * (1.0f * std::pow(.5f, level) * system.kappa)) {
 	return p_coh;
@@ -275,12 +276,17 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
     target.unfiltered =
 	build_gaussian_pyramid(target_unfiltered_img, levels);
 
+    target.filtered = source.filtered;
     for (size_t i = 0; i < levels; i++) {
-	target.filtered.push_back(Buffer2D<Feature>(target.unfiltered[i].rows(), target.unfiltered[i].columns()));
+	Vec2s p;
+	for (p[0] = 2; p[0] + 2 < source.unfiltered[i].rows(); p[0]++) {
+	    for (p[1] = 2; p[1] + 2 < source.unfiltered[i].columns(); p[1]++) {
+		target.filtered[i](p) = RGBColor();
+	    }
+	}
 	
 	Buffer2D<Vec2s> assgnt(target.unfiltered[i].rows(), target.unfiltered[i].columns());
 
-	Vec2s p;
 	for (p[0] = 0; p[0] < assgnt.rows(); p[0]++) {
 	    for (p[1] = 0; p[1] < assgnt.columns(); p[1]++) {
 		assgnt(p) = p;
@@ -289,7 +295,7 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 	assignments.push_back(assgnt);
     }
 
-    kd_trees.reserve(levels - 1);
+    kd_trees.reserve(levels);
     for (size_t lvl = 0; lvl < levels; lvl++) {
 	std::cout << "Building level " << lvl << "\n";
 	Vec2s p;
@@ -297,18 +303,18 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 	size_t neighborhood_count =
 	    (source.unfiltered[lvl].rows() - 4) * (source.unfiltered[lvl].columns() - 4);
 
-	size_t neighborhood_dims;
-	if (lvl + 1 < levels) {
-	    neighborhood_dims =
-	    FEATURE_DIM * (
-		(coarse_area + fine_area)
-		+ (coarse_area + fine_diameter * fine_radius + fine_radius));
-	} else {
-	    neighborhood_dims = 
-	    FEATURE_DIM * (
-		fine_area
-		+ (fine_diameter * fine_radius + fine_radius));
-	}
+	size_t neighborhood_dims = FEATURE_DIM * fine_area;
+	// if (lvl + 1 < levels) {
+	//     neighborhood_dims =
+	//     FEATURE_DIM * (
+	// 	(coarse_area + fine_area)
+	// 	+ (coarse_area + fine_diameter * fine_radius + fine_radius));
+	// } else {
+	//     neighborhood_dims = 
+	//     FEATURE_DIM * (
+	// 	fine_area
+	// 	+ (fine_diameter * fine_radius) + fine_radius);
+	// }
 	ANNpoint* neighborhoods_lvl = new ANNpoint[neighborhood_count]; // TODO : delete this
 	float* coord_buffer = new float[neighborhood_count * neighborhood_dims]; // TODO : delete this
 
@@ -316,9 +322,8 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 	for (p[0] = 2; p[0] + 2 < source.unfiltered[lvl].rows(); p[0]++) {
 	    std::cout << "Building row " << p[0] << "\n";
 	    for (p[1] = 2; p[1] + 2 < source.unfiltered[lvl].columns(); p[1]++) {
-		Eigen::ArrayXXf neigh = get_neighborhood(source, lvl, p);
+		Eigen::ArrayXXf neigh = get_neighborhood(source.unfiltered[lvl], p, fine_radius);
 		assert(neigh.size() == neighborhood_dims);
-
 		assert(nb_idx < neighborhood_count);
 		
 		neighborhoods_lvl[nb_idx] = &coord_buffer[nb_idx * neighborhood_dims];

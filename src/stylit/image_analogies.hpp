@@ -33,7 +33,7 @@ struct ImageAnalogySystem {
     ImagePair target;
 
     std::vector<Buffer2D<Vec2s>> assignments;
-    std::vector<ANNbruteForce> kd_trees;
+    std::vector<ANNkd_tree> kd_trees;
     
     ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltered,
 		       const Buffer2D<Feature>& source_filtered,
