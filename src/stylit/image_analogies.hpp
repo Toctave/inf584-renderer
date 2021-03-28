@@ -4,6 +4,8 @@
 #include "../Image.hpp"
 #include "../Vec.hpp"
 
+#include "EigenBuffer2DView.hpp"
+
 #include <vector>
 
 #include <ANN/ANN.h>
@@ -16,20 +18,22 @@ typedef RGBColor Feature;
 
 const size_t FEATURE_DIM = 3;
 
+struct ImagePair {
+    std::vector<Buffer2D<Feature>> unfiltered;
+    std::vector<Buffer2D<Feature>> filtered;
+};
+
 struct ImageAnalogySystem {
     size_t levels;
     float kappa;
 
     std::vector<ANNpointArray> neighborhoods;
-    
-    std::vector<Buffer2D<Feature>> source_unfiltered;
-    std::vector<Buffer2D<Feature>> source_filtered;
-    
-    std::vector<Buffer2D<Feature>> target_unfiltered;
-    std::vector<Buffer2D<Feature>> target_filtered;
+
+    ImagePair source;
+    ImagePair target;
 
     std::vector<Buffer2D<Vec2s>> assignments;
-    std::vector<ANNkd_tree> kd_trees;
+    std::vector<ANNbruteForce> kd_trees;
     
     ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltered,
 		       const Buffer2D<Feature>& source_filtered,

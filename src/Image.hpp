@@ -25,6 +25,7 @@ public:
     const T& operator()(Vec2s p) const { return data_[index(p[0], p[1])]; }
     T& operator()(Vec2s p) { return data_[index(p[0], p[1])]; }
 
+    T* data() { return data_.data(); }
     const T* data() const { return data_.data(); }
 
     size_t rows() const { return rows_; }

@@ -20,18 +20,18 @@ static void display(SyncData& sync, const ImageAnalogySystem& system) {
     size_t lvl = 0;
     
     while (!quit) {
-	size_t w = std::max(system.source_unfiltered[lvl].columns(), system.target_unfiltered[lvl].columns());
-	size_t h = std::max(system.source_unfiltered[lvl].rows(), system.target_unfiltered[lvl].rows());
+	size_t w = std::max(system.source.unfiltered[lvl].columns(), system.target.unfiltered[lvl].columns());
+	size_t h = std::max(system.source.unfiltered[lvl].rows(), system.target.unfiltered[lvl].rows());
 	SDL_Surface* surf = SDL_CreateRGBSurface(0,
 						 2 * w, 2 * h, 32, 0, 0, 0, 0);
 	
 	SDL_Rect rect{0, 0, 2 * w, 2 * h};
 	SDL_FillRect(surf, &rect, 0);
 	
-	draw_image(to_rgb8(system.source_unfiltered[lvl]), surf, 0, 0);
-	draw_image(to_rgb8(system.source_filtered[lvl]), surf, w, 0);
-	draw_image(to_rgb8(system.target_unfiltered[lvl]), surf, 0, h);
-	draw_image(to_rgb8(system.target_filtered[lvl]), surf, w, h);
+	draw_image(to_rgb8(system.source.unfiltered[lvl]), surf, 0, 0);
+	draw_image(to_rgb8(system.source.filtered[lvl]), surf, w, 0);
+	draw_image(to_rgb8(system.target.unfiltered[lvl]), surf, 0, h);
+	draw_image(to_rgb8(system.target.filtered[lvl]), surf, w, h);
 	
 	SDL_Surface* winsurf = SDL_GetWindowSurface(window);
 	blit_fit(surf, winsurf);
@@ -49,10 +49,10 @@ static void display(SyncData& sync, const ImageAnalogySystem& system) {
 	    if (evt.type == SDL_KEYDOWN)
 		switch (evt.key.keysym.sym) {
 		case SDLK_RIGHT:
-		    lvl = (lvl + 1) % system.target_filtered.size();
+		    lvl = (lvl + 1) % system.target.filtered.size();
 		    break;
 		case SDLK_LEFT:
-		    lvl = (lvl + system.target_filtered.size() - 1) % system.target_filtered.size();
+		    lvl = (lvl + system.target.filtered.size() - 1) % system.target.filtered.size();
 		    break;
 	    }
 	}
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
     SDL_WaitThread(thread, nullptr);
 
     std::ofstream output_file(argv[4]);
-    write_png(to_rgb8(system.target_filtered[0]), output_file);
+    write_png(to_rgb8(system.target.filtered[0]), output_file);
     
     return 0;
 }

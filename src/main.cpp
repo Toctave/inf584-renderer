@@ -24,12 +24,9 @@
 #include "TriangleMesh.hpp"
 #include "BVH.hpp"
 #include "LightTree.hpp"
-#include "stylit/stylit.hpp"
 #include "TOMLParser.hpp"
 #include "util.hpp"
 #include "display.hpp"
-
-#include "stylit/image_analogies.hpp"
 
 struct Options {
     size_t width;

@@ -49,9 +49,8 @@ add_executable(stylit)
 target_include_directories(stylit PRIVATE ./src/extern/ann_1.1.2/include src/extern)
 target_sources(stylit PRIVATE
   src/stylit/main.cpp
-  src/stylit/FeatureVector.cpp
   src/stylit/image_analogies.cpp
-  src/stylit/stylit.cpp
+  src/stylit/EigenBuffer2DView.cpp
   src/Color.cpp
   src/Image.cpp
   src/constants.cpp
