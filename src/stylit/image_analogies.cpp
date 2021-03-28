@@ -120,7 +120,18 @@ build_gaussian_pyramid(const Buffer2D<Feature>& base, size_t levels) {
 	size_t rows = static_cast<size_t>(pyramid.back().rows() / 2);
 	size_t columns = static_cast<size_t>(pyramid.back().columns() / 2);
 
-	pyramid.push_back(resized(pyramid.back(), rows, columns));
+	Buffer2D<Feature> resized(rows, columns);
+	for (size_t r = 0; r < rows; r++) {
+	    for (size_t c = 0; c < columns; c++) {
+		resized(r, c) = .25f * (
+		    pyramid.back()(2 * r, 2 * c)
+		    + pyramid.back()(2 * r + 1, 2 * c)
+		    + pyramid.back()(2 * r + 1, 2 * c + 1)
+		    + pyramid.back()(2 * r, 2 * c + 1)
+		    );
+	    }
+	}
+	pyramid.push_back(resized);
     }
     return pyramid;
 }
