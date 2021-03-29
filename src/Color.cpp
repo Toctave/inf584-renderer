@@ -86,9 +86,15 @@ RGBColor operator*(const RGBColor& lhs, const RGBColor& rhs) {
 }
 
 RGBColor srgb_to_linear(const RGB8& rgb8) {
-    return RGBColor(
+    RGBColor result(
 	static_cast<float>(rgb8.r) / 255.0f,
 	static_cast<float>(rgb8.g) / 255.0f,
 	static_cast<float>(rgb8.b) / 255.0f
 	);
+
+    for (size_t i = 0; i < 3; i++) {
+	result[i] = srgb_to_linear(result[i]);
+    }
+
+    return result;
 }
