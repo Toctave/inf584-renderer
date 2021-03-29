@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
     SDL_WaitThread(thread, nullptr);
 
     std::ofstream output_file(args.output_file);
-    // write_png(to_rgb8(system.target.filtered[0]), output_file);
+    write_png(to_rgb8(feature_to_rgb(system.target.filtered[0])), output_file);
     
     return 0;
 }
