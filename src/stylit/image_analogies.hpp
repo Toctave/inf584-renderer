@@ -4,23 +4,18 @@
 #include "../Image.hpp"
 #include "../Vec.hpp"
 
-#include "EigenBuffer2DView.hpp"
+#include "EigenArray2D.hpp"
 
 #include <vector>
 
 #include <ANN/ANN.h>
 
-typedef RGBColor Feature;
-
-// struct Feature {
-//     std::vector<RGBColor> channels;
-// };
-
-const size_t FEATURE_DIM = 3;
+using Feature = Eigen::VectorXf;
+using FeatureImage = EigenArray2D<float>;
 
 struct ImagePair {
-    std::vector<Buffer2D<Feature>> unfiltered;
-    std::vector<Buffer2D<Feature>> filtered;
+    std::vector<FeatureImage> filtered;
+    std::vector<FeatureImage> unfiltered;
 };
 
 struct ImageAnalogySystem {
@@ -34,17 +29,19 @@ struct ImageAnalogySystem {
 
     std::vector<Buffer2D<Vec2s>> assignments;
     std::vector<ANNkd_tree> kd_trees;
-    
-    ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltered,
-		       const Buffer2D<Feature>& source_filtered,
-		       const Buffer2D<Feature>& target_unfiltered,
+
+    ImageAnalogySystem(const FeatureImage& source_unfiltered_img,
+		       const FeatureImage& source_filtered_img,
+		       const FeatureImage& target_unfiltered_img,
 		       size_t levels,
 		       float kappa);
 };
 
-Buffer2D<Feature> stylit(const Buffer2D<Feature>& source_unfiltered,
-			 const Buffer2D<Feature>& source_filtered,
-			 const Buffer2D<Feature>& target_unfiltered,
-			 size_t levels,
-			 float kappa);
+FeatureImage multichannel_image(const std::vector<Buffer2D<RGBColor>>& images);
+
 void solve(ImageAnalogySystem& system);
+
+Feature rgb_to_feature(const RGBColor& color);
+RGBColor feature_to_rgb(const Feature& feature);
+
+Buffer2D<RGBColor> feature_to_rgb(const FeatureImage& image);

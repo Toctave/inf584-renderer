@@ -234,7 +234,7 @@ void render(SyncData& sync, std::vector<RGBFilm>& output_images, const Options& 
     double last_time = t0;
 
     while (samples_taken < options.sample_count && !need_quit) {
-#pragma omp parallel for schedule(static, 4)
+#pragma omp parallel for schedule(static, 1)
 	for (size_t row = 0; row < options.height; row++) {
 	    for (size_t col = 0; col < options.width; col++) {
 		Vec2 image_sample = get_image_sample(row, col, options.width, options.height, samples_taken);

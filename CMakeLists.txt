@@ -50,7 +50,6 @@ target_include_directories(stylit PRIVATE ./src/extern/ann_1.1.2/include src/ext
 target_sources(stylit PRIVATE
   src/stylit/main.cpp
   src/stylit/image_analogies.cpp
-  src/stylit/EigenBuffer2DView.cpp
   src/Color.cpp
   src/Image.cpp
   src/constants.cpp

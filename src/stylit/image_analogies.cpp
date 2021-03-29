@@ -14,6 +14,29 @@ static const size_t fine_diameter = 2 * fine_radius + 1;
 static const size_t coarse_area = coarse_diameter * coarse_diameter;
 static const size_t fine_area = fine_diameter * fine_diameter;
 
+Feature rgb_to_feature(const RGBColor& color) {
+    Feature result(3);
+    
+    result(0) = color[0];
+    result(1) = color[1];
+    result(2) = color[2];
+
+    return result;
+}
+
+RGBColor feature_to_rgb(const Feature& feature) {
+    if (feature.size() < 3) {
+	throw std::runtime_error("Too few coordinates in feature");
+    }
+    RGBColor result;
+
+    result[0] = feature(0);
+    result[1] = feature(1);
+    result[2] = feature(2);
+
+    return result;
+}
+
 template<typename Derived>
 static Derived concat(const Eigen::DenseBase<Derived>& m1, const Eigen::DenseBase<Derived>& m2) {
     Derived result(m1.rows() + m2.rows(), m1.cols());
@@ -24,27 +47,26 @@ static Derived concat(const Eigen::DenseBase<Derived>& m1, const Eigen::DenseBas
     return result;
 }
 
-static Eigen::ArrayXXf get_neighborhood(const Buffer2D<Feature>& features, Vec2s p, size_t radius) {
+static Eigen::ArrayXXf get_neighborhood(const FeatureImage& features, Vec2s p, size_t radius) {
     size_t diameter = 2 * radius + 1;
-    return as_eigen(features, FEATURE_DIM).pixel_block(
+    return features.block(
 	p[0] - radius,
 	p[1] - radius,
 	diameter,
 	diameter);
 }
 
-static Eigen::ArrayXXf get_partial_neighborhood(const Buffer2D<Feature>& features, Vec2s p, size_t radius) {
+static Eigen::ArrayXXf get_partial_neighborhood(const FeatureImage& features, Vec2s p, size_t radius) {
     // return the neighborhood up until the center, in scan-line order
 
-    auto view = as_eigen(features, FEATURE_DIM);
     size_t diameter = 2 * radius + 1;
     
-    return concat(view.pixel_block(
+    return concat(features.block(
 		      p[0] - radius,
 		      p[1] - radius,
 		      radius,
 		      diameter),
-		  view.pixel_block(
+		  features.block(
 		      p[0],
 		      p[1] - radius,
 		      1,
@@ -52,7 +74,7 @@ static Eigen::ArrayXXf get_partial_neighborhood(const Buffer2D<Feature>& feature
 }
 
 static Eigen::ArrayXXf get_bilevel_neighborhood(
-    const std::vector<Buffer2D<Feature>>& features,
+    const std::vector<FeatureImage>& features,
     size_t base_level,
     Vec2s p) {
 
@@ -70,7 +92,7 @@ static Eigen::ArrayXXf get_bilevel_neighborhood(
 }
 
 static Eigen::ArrayXXf get_partial_bilevel_neighborhood(
-    const std::vector<Buffer2D<Feature>>& features,
+    const std::vector<FeatureImage>& features,
     size_t base_level,
     Vec2s p) {
     
@@ -111,9 +133,9 @@ static Eigen::ArrayXXf get_neighborhood(
 }
 
 // TODO : actually use a gaussian filter
-static std::vector<Buffer2D<Feature>>
-build_gaussian_pyramid(const Buffer2D<Feature>& base, size_t levels) {
-    std::vector<Buffer2D<Feature>> pyramid;
+static std::vector<FeatureImage>
+build_gaussian_pyramid(const FeatureImage& base, size_t levels) {
+    std::vector<FeatureImage> pyramid;
     pyramid.reserve(levels);
 
     pyramid.push_back(base);
@@ -122,7 +144,7 @@ build_gaussian_pyramid(const Buffer2D<Feature>& base, size_t levels) {
 	size_t rows = static_cast<size_t>(pyramid.back().rows() / 2);
 	size_t columns = static_cast<size_t>(pyramid.back().columns() / 2);
 
-	Buffer2D<Feature> resized(rows, columns);
+	FeatureImage resized(rows, columns, pyramid.back().depth());
 	for (size_t r = 0; r < rows; r++) {
 	    for (size_t c = 0; c < columns; c++) {
 		resized(r, c) = .25f * (
@@ -262,12 +284,23 @@ void solve(ImageAnalogySystem& system) {
     }
 }
 
-ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltered_img,
-				       const Buffer2D<Feature>& source_filtered_img,
-				       const Buffer2D<Feature>& target_unfiltered_img,
+ImageAnalogySystem::ImageAnalogySystem(const FeatureImage& source_unfiltered_img,
+				       const FeatureImage& source_filtered_img,
+				       const FeatureImage& target_unfiltered_img,
 				       size_t levels,
 				       float kappa)
     : levels(levels), kappa(kappa) {
+
+    if (source_unfiltered_img.depth() != target_unfiltered_img.depth()) {
+	throw std::runtime_error("Channel count mismatch in input images");
+    }
+    
+    if (source_unfiltered_img.rows() != target_unfiltered_img.rows()
+	|| source_unfiltered_img.columns() != target_unfiltered_img.columns()
+	|| source_unfiltered_img.rows() != source_filtered_img.rows()
+	|| source_unfiltered_img.columns() != source_filtered_img.columns()) {
+	throw std::runtime_error("Size mismatch in input images");
+    }
     
     source.unfiltered =
 	build_gaussian_pyramid(source_unfiltered_img, levels);
@@ -281,7 +314,7 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 	Vec2s p;
 	for (p[0] = 2; p[0] + 2 < source.unfiltered[i].rows(); p[0]++) {
 	    for (p[1] = 2; p[1] + 2 < source.unfiltered[i].columns(); p[1]++) {
-		target.filtered[i](p) = RGBColor();
+		target.filtered[i](p) = Feature::Zero(target.filtered[i].depth());
 	    }
 	}
 	
@@ -303,7 +336,7 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
 	size_t neighborhood_count =
 	    (source.unfiltered[lvl].rows() - 4) * (source.unfiltered[lvl].columns() - 4);
 
-	size_t neighborhood_dims = FEATURE_DIM * fine_area;
+	size_t neighborhood_dims = source.unfiltered[lvl].depth() * fine_area;
 	ANNpoint* neighborhoods_lvl = new ANNpoint[neighborhood_count]; // TODO : delete this
 	float* coord_buffer = new float[neighborhood_count * neighborhood_dims]; // TODO : delete this
 
@@ -331,14 +364,46 @@ ImageAnalogySystem::ImageAnalogySystem(const Buffer2D<Feature>& source_unfiltere
     std::cout << "Done building the system\n";
 }
 
-Buffer2D<Feature> stylit(const Buffer2D<Feature>& source_unfiltered,
-			 const Buffer2D<Feature>& source_filtered,
-			 const Buffer2D<Feature>& target_unfiltered,
-			 size_t levels,
-			 float kappa) {
-    ImageAnalogySystem system(source_unfiltered, source_filtered, target_unfiltered, levels, kappa);
+FeatureImage multichannel_image(const std::vector<Buffer2D<RGBColor>>& images) {
+    size_t feature_dim = 3 * images.size();
+    size_t rows = images[0].rows();
+    size_t columns = images[0].columns();
 
-    solve(system);
+    FeatureImage result(rows, columns, feature_dim);
 
-    return system.target.filtered[0];
+    for (size_t row = 0; row < rows; row++) {
+	for (size_t col = 0; col < columns; col++) {
+	    result(row, col) = Feature(feature_dim);
+	}
+    }
+
+    for (size_t img_index = 0; img_index < images.size(); img_index++) {
+	const Buffer2D<RGBColor>& image = images[img_index];
+	if (image.rows() != rows || image.columns() != columns) {
+	    throw std::runtime_error("Channel image sizes don't match");
+	}
+	
+	for (size_t row = 0; row < rows; row++) {
+	    for (size_t col = 0; col < columns; col++) {
+		for (size_t i = 0; i < 3; i++) {
+		    result(row, col)(3 * img_index + i) = image(row, col)[i];
+		}
+	    }
+	}
+    }
+
+    return result;
+}
+
+
+Buffer2D<RGBColor> feature_to_rgb(const FeatureImage& image) {
+    Buffer2D<RGBColor> result(image.rows(), image.columns());
+
+    for (size_t row = 0; row < image.rows(); row++) {
+	for (size_t col = 0; col < image.columns(); col++) {
+	    result(row, col) = feature_to_rgb(image(row, col));
+	}
+    }
+
+    return result;
 }

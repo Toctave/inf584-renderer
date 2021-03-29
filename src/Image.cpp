@@ -179,6 +179,10 @@ Buffer2D<RGB8> read_png(const std::string& filepath) {
     int x, y;
     unsigned char* data = stbi_load(filepath.c_str(), &x, &y, nullptr, 3);
 
+    if (!data) {
+	throw std::runtime_error("Could not open " + filepath);
+    }
+
     Buffer2D<RGB8> result(x, y);
 
     memcpy(&result(0, 0), data, x * y * sizeof(RGB8));

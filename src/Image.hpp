@@ -19,11 +19,18 @@ public:
 	: rows_(rows), columns_(columns), data_(rows * columns) {
     }
 
-    const T& operator()(size_t row, size_t col) const { return data_[index(row, col)]; }
-    T& operator()(size_t row, size_t col) { return data_[index(row, col)]; }
+    const T& operator()(size_t row, size_t col) const {
+	assert(row < rows() && col < columns());
+	return data_[index(row, col)];
+    }
     
-    const T& operator()(Vec2s p) const { return data_[index(p[0], p[1])]; }
-    T& operator()(Vec2s p) { return data_[index(p[0], p[1])]; }
+    T& operator()(size_t row, size_t col) {
+	assert(row < rows() && col < columns());
+	return data_[index(row, col)];
+    }
+    
+    const T& operator()(Vec2s p) const { return (*this)(p[0], p[1]); }
+    T& operator()(Vec2s p) { return (*this)(p[0], p[1]); }
 
     T* data() { return data_.data(); }
     const T* data() const { return data_.data(); }
