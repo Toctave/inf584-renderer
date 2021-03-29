@@ -113,8 +113,14 @@ Shape* TOMLParser::decode<Shape*>(const toml::value& toml) {
 	t *= Transform::rotate(axis.normalized(), radians(angle));
     } 
     if (toml.contains("scale")) {
-	float factor = toml::find<float>(toml, "scale");
-	t *= Transform::scale(factor);
+	const toml::value val = toml::find(toml, "scale");
+	if (val.is_floating()) {
+	    float f = toml::get<float>(val);
+	    t *= Transform::scale(f);
+	} else {
+	    Vec3 factor = decode<Vec3>(val);
+	    t *= Transform::scale(factor[0], factor[1], factor[2]);
+	}
     } 
 
     Shape* result = new Shape(prim->second, mat->second);
