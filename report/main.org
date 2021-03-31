@@ -5,6 +5,9 @@
 #+LATEX_CLASS_OPTIONS: [10pt]
 #+LATEX_HEADER: \usepackage[a4paper, margin=3.5cm, columnsep=1cm]{geometry}
 
+#+ATTR_LATEX: :width 13cm
+[[./beauty.png]]
+
 * Introduction
 :PROPERTIES:
 :UNNUMBERED: t
@@ -40,14 +43,14 @@ These strategies are applied at increasing resolutions : in effect, the algorith
 - the resolution level -- indeed, prioritizing strategy 2 at higher resolutions means that high-frequency detail such as brush strokes will be preserved, while broader regions in the image will better maintain the image analogy,
 - and a user-provided bias : depending on the application, one might prefer to prioritize either strategy.
 
-While this framework does not dictate how the distance of image patches should be computed, the original authors work with RGB images and use the euclidean norm in the CIE XYZ color space as a measure of perceptual difference.
+While this framework does not dictate how the distance of image patches should be computed, the original authors work with RGB images and use the euclidean norm in luminance space as a measure of perceptual difference.
 
 ** StyLit
 
-StyLit is an implementation of the Image Analogies framework that focuses on one specific use case : the stylization of pathtraced 3D renders. Here, $A$ and $B$ are pathtraced renders of two 3D scenes, and $A'$ and $B'$ are stylized versions of those renders. As such, it makes several improvements to the original technique to better fit this problem : 
+StyLit is an implementation of the Image Analogies framework that focuses on one specific use case : the stylization of pathtraced 3D renders. Here, $A$ and $B$ are pathtraced renders of two 3D scenes, and $A'$ and $B'$ are stylized versions of those renders. As such, it makes several improvements to the original technique to better fit this application : 
 
 - While it still uses RGB images for $A'$ and $B'$, $A$ and $B$ are multi-channel images representing light path expressions passes of the 3D renders. Intuitively, this means that the algorithm can generate the target image in a similar way to what an artist does : different styles or colors can be chosen based on the contributions of direct diffuse illumination ($\texttt{LDE}$), specular highlights ($\texttt{LSE}$), bounce lighting ($\texttt{L.*DDE}$), or even caustics ($\texttt{L.*SDE}$). 
-- StyLit uses a more elaborate optimization procedure : rather than using either strategy 1 or 2, both are used and the resulting patches are averaged together. Furthermore, to avoid the wash-out effect that this average creates, the assignment of patches from $A'$ onto $B'$ is carefully controlled. Patch reuse is initially disabled. Once a suitable assignment has been found for all patches in $B'$, these assignments are sorted by increasing error. Assignments whose error is higher than an empirical threshold are cancelled, whereas those whose error is below are validated. The procedure is then restarted for the cancelled patches, up until all the patches in the final image have been assigned. This system enforces uniform patch usage as long as it does not degrade the image quality : for instance, if the specular highlights in $B'$ the target image occupy a larger area than in $A'$, enforcing uniform patch usage would fill highlights with samples taken from elsewhere in the image.
+- StyLit uses a more elaborate optimization procedure : rather than using either strategy 1 or 2, both are used and the resulting patches are averaged together. Furthermore, to avoid the wash-out effect that this average creates, the assignment of patches from $A'$ onto $B'$ is carefully controlled. Patch reuse is initially disabled. Once a suitable source patch has been found for all patches in $B'$, these assignments are sorted by increasing error. Assignments whose error is higher than an empirical threshold are cancelled, whereas those whose error is below are validated. The procedure is then restarted for the cancelled patches, up until all the patches in the final image have been assigned. This system enforces uniform patch usage as long as it does not highly degrade the image quality : for instance, if the specular highlights in $B'$ the target image occupy a larger area than in $A'$, enforcing uniform patch usage would fill the highlights in $B'$ with non-highlight samples.
 
 
 * Implementation efforts
@@ -58,9 +61,9 @@ Any defects in the renders used by the StyLit algorithm will propagate onto the 
 
 - *Using a linear space for colors* : for the blending and summation of RGB colors to make physical sense, those must lie in a linear space. However, the final image file is interpreted by most image viewers and monitors as lying in the sRGB color space. As such, I performed the conversion before saving the image to disk.
 - *Filtering image samples* : when accumulating samples into the final image buffer, the most straight-forward behaviour is to sum onto the pixel closest to where the sample was taken. In effect, this reconstructs the sampled image with a box filter. By instead using a Mitchell-Netravali filter with a radius of 1.5 pixels, I obtained smoother renders with the same amount of samples.
-- *Importance sampling the microfacet material* : with cosine-weighted hemisphere sampling, smooth specular materials made the renders converge very slowly. By importance sampling bounce rays according to the $G$ term of the microfacet BRDF,  smoother highlights.
+- *Importance sampling the microfacet material* : with cosine-weighted hemisphere sampling, smooth specular materials made the renders converge very slowly. By importance sampling bounce rays according to the $G$ term of the microfacet BRDF, smoother highlights were produced with little runtime cost.
 - *Reading scenes from files* : in order to quickly iterate on scene setups and avoid recompilation delay, I implemented a simple importer that reads 3D scenes from a =.toml= configuration file, with the =toml11= library.
-- *Synthesizing a distinct pass for each type of light path* : critical to the effectiveness of StyLit is the use of multi-channel images for multiple light path expressions. In order to synthesize those, I slightly altered the structure of the pathtracer : rather than directly computing radiances, a light tree[fn:light_tree] is computed for every camera ray, which records the radiance computed along every branch as well as the surface type of each bounce. The tree is then traversed, and paths matching the light path expressions chosen by the user are accumulated onto the appropriate image buffer. To keep parsing and matching simple, I used a simpler dialect than the StyLit authors : 
+- *Synthesizing a distinct pass for each type of light path* : critical to the effectiveness of StyLit is the use of multi-channel images for multiple light path expressions. In order to synthesize those, I slightly altered the structure of the pathtracer : rather than directly computing radiances, a light tree[fn:light_tree] is computed for every camera ray, which records the radiance computed along every branch as well as the surface type of each bounce. The tree is then traversed, and paths matching the light path expressions chosen by the user are accumulated onto the appropriate image buffer. To keep parsing and matching simple, I used a simpler LPE dialect than the StyLit authors : 
   + ='L'=, ='D'=, ='S'=, and ='E'= match a bounce at a light, a diffuse surface, a specular surface, and the eye at the root of the light tree, respectively.
   + ='.'= matches any type of surface, once.
   + ='*'= matches any type of surface, zero or more times.
@@ -72,7 +75,7 @@ Any defects in the renders used by the StyLit algorithm will propagate onto the 
 In order to implement the base algorithm, I followed the structure of the /Image Analogies/ paper. After building gaussian pyramids of the feature images, kd-trees are built for all levels of the pyramid, which all contain the feature vectors of $A$ at that level. The pyramid for $B'$ is then synthesized, from coarsest to finest resolution. For each patch $q$ to be synthesized, the kd-tree is queried for its nearest neighbor $p_{app}$. $p_{app}$ is considered, along with the points $p_{coh}$ that were used to synthesize the neighborhood of $q$ at a resolution one level coarser than the one being synthesized. That of $p_{app}$ and $p_{coh}$ which best maintains the perceptual quality of the neighborhood being synthesized is chosen :
 
 $$ \begin{align}
-  B_l'(q) = & A_l'(p_{coh}) \,\,\, $if$ \,\,\, \lVert \mathcal{A}_l(p_{coh}) - \mathcal{B}_l(q) \rVert \leq (1 + 2^{-l}\kappa)\lVert \mathcal{A}_l(p_{app}) - \mathcal{B}_l(q) \rVert \\
+  B_l'(q) = & A_l'(p_{coh}) \,\,\, $if$ \,\,\, \lVert \mathcal{A}_l(p_{coh}) - \mathcal{B}_l(q) \rVert ^2 \leq (1 + 2^{-l}\kappa)\lVert \mathcal{A}_l(p_{app}) - \mathcal{B}_l(q) \rVert ^2 \\
         & A_l'(p_{app})  \,\,\, $otherwise$
 \end{align} $$
 
@@ -88,11 +91,41 @@ As for image analogies, I made a few unsuccessful attempts before reaching a cor
 
 Furthermore, interfacing with =libANN= proved error-prone as well. The library makes heavy use of C-style arrays in place of STL containers, which is in itself manageable though it requires rigorous bounds checking and data layout considerations. However, =libANN= provides destructors for its objects but no copy constructors or assignment operators. As such, it would often pull the rug from under my program without warning : for instance, the automatic resizing of an =std::vector= of ANN kd-trees would release the allocated memory of the trees without transferring it to the new copies. This resulted in data corruption, which was difficult to debug. 
 
-Finally, a particular issue took much longer to fix than I would like to admit. To display and save images, I copied data from =Eigen= arrays to my own =Buffer2D= data structures. Because =Eigen= arrays are stored in column-major order by default, I interpreted color data which was laid out as =RRRRGGGGBBBB= as =RGBRGBRGBRGB=. This resulted in puzzling corrupted images, one of which is displayed below. Because the results displayed some noticeable structure rather than being entirely gibberish, I initially faulted my algorithms rather than my data layout, which proved both time-consuming and unsuccessful.
+Finally, a particular issue took much longer to fix than I would like to admit. To display and save images, I copied data from =Eigen= arrays to my own =Buffer2D= data structures. Because =Eigen= arrays are stored in column-major order by default, I interpreted color data which was laid out as =RRRRGGGGBBBB= as =RGBRGBRGBRGB=. This resulted in puzzling corrupted images. Because the results displayed some noticeable structure rather than being entirely gibberish, I initially faulted my algorithms rather than my data layout, which proved both time-consuming and unsuccessful.
 
-Unfortunately, I did not have time to implement the error-budgeting and clever patch distribution of /StyLit/ : as such, my program is merely an implementation of /Image Analogies/ with light path expression passes as feature vectors. Still, the results are quite interesting.
-
-
+Unfortunately, I did not have time to implement the error-budgeting and clever patch distribution of /StyLit/ : as such, my program is merely an implementation of /Image Analogies/ with light path expression passes as feature vectors. I was nonetheless able to synthesize reasonable stylizations.
 
 * Results
 
+#+ATTR_LATEX: :width \textwidth
+#+CAPTION: Light passes used for my tests. From left to right : =L*E=, =LDE=, =LDDE=, =L*DDE=, =LSE=, =L*SE= and =L*SDE=
+#+NAME:   fig:light-passes
+[[./light-passes.png]]
+
+Filtering the render with light path expressions proved to be an interesting tool, both for the results themselves and as a debugging aid. As can be seen in figure [[fig:light-passes]], the different passes exhibit multiple light behaviours : direct diffuse lighting with =LDE=, specular highlights with =LSE=, bounce lighting with =L*DDE=, and even caustics with "L*SDE". Furthermore, passes with more bounces are more noisy, because the number of path possibilities is higher, which increases variance. On the =L*SDE= pass especially, there are a few extremely bright spots. This is due to the low likelihood of hitting the few particularly bright paths.
+
+The addition of light path computations does not change the algorithms used, and therefore does not impact performance much. I noticed a 5% overhead in total program time when outputting 6 light path expression buffers rather than only accumulating onto a single RGB buffer. 
+
+#+ATTR_LATEX: :height 20cm
+#+CAPTION: Influence of $\kappa$ over the synthesized picture.
+#+NAME:   fig:kappa
+[[./kappa.png]]
+
+The results of the image analogies algorithm are presented in figures [[fig:kappa]]. The parameter $\kappa$ influences how much spatial coherence is favoured against nearest neighbor queries. Increasing it allows for better preserved artistic features, but going past a certain threshold removes the overall structure of the image $B$ in favour of copying larger patches from $A'$ onto $B'$.
+
+I did not attempt to optimize performance, but still reached usable results : my single-threaded, CPU-only program can synthesize a 256x256 image with 6 pyramid levels based on 8 light passes in 15 seconds. I also synthesized 1024x1024 images with the same parameters in about 5 minutes. 
+
+More than half of the execution time is spent building the kd-tree data structure. In a production setting, this step could be cached, as it depends only on $A$ : the user could then change $A'$, $B$ and the program settings without as high of a penalty. For large resolutions and channel counts, up to 40% of the remaining time may be spent in nearest neighbor queries. Accelerating those is therefore critical. ANN provides a parameter $\epsilon$ which allows for faster queries, at the cost of accuracy : the resulting point's distance is guaranteed to be a distance $(1 + \epsilon)d_{actual}$ away from the query point, where $d_{actual}$ is the actual distance to the nearest neighbor. Figure [[fig:epsilon]] shows results with multiple values of $\epsilon$. Increasing $\epsilon$ increases performance with minimal perceptual differences in the final result : as such, it is a good way to create quicker previews before the final run of the program.
+
+#+ATTR_LATEX: :width 8cm
+#+CAPTION: Influence of $\epsilon$ over the synthesized picture.
+#+NAME:   fig:epsilon
+[[./epsilon.png]]
+
+* Acknowledgements
+
+My warmest thanks go to :
+
+- Sofia Robert for her examplar digital painting 
+- Camille Huynh and Juliete Rossie for fruitful discussion about the project
+- The Stanford scanning repository for the 3D models used
