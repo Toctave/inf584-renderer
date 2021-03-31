@@ -1,12 +1,16 @@
-#+TITLE: INF584 report - StyLit
+#+TITLE: INF584 Final project - StyLit
 #+AUTHOR: Octave Crespel
 #+OPTIONS: toc:nil
 
-#+LaTeX_CLASS_OPTIONS: [a4paper, twocolumn]
+#+LATEX_CLASS_OPTIONS: [10pt]
+#+LATEX_HEADER: \usepackage[a4paper, margin=3.5cm, columnsep=1cm]{geometry}
 
 * Introduction
+:PROPERTIES:
+:UNNUMBERED: t
+:END:
 
-As an extension to the pathtracer I developed during the INF584 practical sessions, I decided to explore the paper /StyLit : Illumination-Guided Example-Based Stylization of 3D Renderings/. While I did not implement the technique in its entirety, I wrote implementations of some key parts in C++. 
+As an extension to the pathtracer I developed during the INF584 practical sessions, I decided to explore the paper /StyLit : Illumination-Guided Example-Based Stylization of 3D Renderings/. While I did not implement the technique in its entirety, I wrote implementations of key parts in C++. 
 
 * Overview of the /StyLit/ technique
 
@@ -32,9 +36,9 @@ These two strategies optimize for two desirable qualities in the synthesized ima
 
 These strategies are applied at increasing resolutions : in effect, the algorithm uses mip-map pyramids of $A$, $A'$, and $B'$ to produce a mip-map pyramid of $B'$. At each resolution, the target patches are synthesized in scan-line order. Both strategies are used to compute a candidate patch, and one of them is chosen as the definitive solution based on : 
 
-- How close the patches match,
-- The resolution level. Indeed, prioritizing strategy 2 at higher resolutions means that high-frequency detail such as brush strokes will be preserved, while broader regions in the image will better maintain the image analogy,
-- And a user-provided bias : depending on the application, one might prefer to prioritize either strategy.
+- how close the patches match -- both on the filtered image and on the exemplar image,
+- the resolution level -- indeed, prioritizing strategy 2 at higher resolutions means that high-frequency detail such as brush strokes will be preserved, while broader regions in the image will better maintain the image analogy,
+- and a user-provided bias : depending on the application, one might prefer to prioritize either strategy.
 
 While this framework does not dictate how the distance of image patches should be computed, the original authors work with RGB images and use the euclidean norm in the CIE XYZ color space as a measure of perceptual difference.
 
@@ -46,4 +50,49 @@ StyLit is an implementation of the Image Analogies framework that focuses on one
 - StyLit uses a more elaborate optimization procedure : rather than using either strategy 1 or 2, both are used and the resulting patches are averaged together. Furthermore, to avoid the wash-out effect that this average creates, the assignment of patches from $A'$ onto $B'$ is carefully controlled. Patch reuse is initially disabled. Once a suitable assignment has been found for all patches in $B'$, these assignments are sorted by increasing error. Assignments whose error is higher than an empirical threshold are cancelled, whereas those whose error is below are validated. The procedure is then restarted for the cancelled patches, up until all the patches in the final image have been assigned. This system enforces uniform patch usage as long as it does not degrade the image quality : for instance, if the specular highlights in $B'$ the target image occupy a larger area than in $A'$, enforcing uniform patch usage would fill highlights with samples taken from elsewhere in the image.
 
 
-* 
+* Implementation efforts
+
+** Improvements to the pathtracer
+
+Any defects in the renders used by the StyLit algorithm will propagate onto the stylized result. As such, before going into the implementation of StyLit, I implemented a few well-known techniques to improve the images produced by my renderer and make later progress easier :
+
+- *Using a linear space for colors* : for the blending and summation of RGB colors to make physical sense, those must lie in a linear space. However, the final image file is interpreted by most image viewers and monitors as lying in the sRGB color space. As such, I performed the conversion before saving the image to disk.
+- *Filtering image samples* : when accumulating samples into the final image buffer, the most straight-forward behaviour is to sum onto the pixel closest to where the sample was taken. In effect, this reconstructs the sampled image with a box filter. By instead using a Mitchell-Netravali filter with a radius of 1.5 pixels, I obtained smoother renders with the same amount of samples.
+- *Importance sampling the microfacet material* : with cosine-weighted hemisphere sampling, smooth specular materials made the renders converge very slowly. By importance sampling bounce rays according to the $G$ term of the microfacet BRDF,  smoother highlights.
+- *Reading scenes from files* : in order to quickly iterate on scene setups and avoid recompilation delay, I implemented a simple importer that reads 3D scenes from a =.toml= configuration file, with the =toml11= library.
+- *Synthesizing a distinct pass for each type of light path* : critical to the effectiveness of StyLit is the use of multi-channel images for multiple light path expressions. In order to synthesize those, I slightly altered the structure of the pathtracer : rather than directly computing radiances, a light tree[fn:light_tree] is computed for every camera ray, which records the radiance computed along every branch as well as the surface type of each bounce. The tree is then traversed, and paths matching the light path expressions chosen by the user are accumulated onto the appropriate image buffer. To keep parsing and matching simple, I used a simpler dialect than the StyLit authors : 
+  + ='L'=, ='D'=, ='S'=, and ='E'= match a bounce at a light, a diffuse surface, a specular surface, and the eye at the root of the light tree, respectively.
+  + ='.'= matches any type of surface, once.
+  + ='*'= matches any type of surface, zero or more times.
+
+[fn:light_tree] A tree is computed, rather than a list, because several samples are taken at each bounce : one for each BRDF the surface's material is composed of.
+
+** Implementation of /Image Analogies/
+
+In order to implement the base algorithm, I followed the structure of the /Image Analogies/ paper. After building gaussian pyramids of the feature images, kd-trees are built for all levels of the pyramid, which all contain the feature vectors of $A$ at that level. The pyramid for $B'$ is then synthesized, from coarsest to finest resolution. For each patch $q$ to be synthesized, the kd-tree is queried for its nearest neighbor $p_{app}$. $p_{app}$ is considered, along with the points $p_{coh}$ that were used to synthesize the neighborhood of $q$ at a resolution one level coarser than the one being synthesized. That of $p_{app}$ and $p_{coh}$ which best maintains the perceptual quality of the neighborhood being synthesized is chosen :
+
+$$ \begin{align}
+  B_l'(q) = & A_l'(p_{coh}) \,\,\, $if$ \,\,\, \lVert \mathcal{A}_l(p_{coh}) - \mathcal{B}_l(q) \rVert \leq (1 + 2^{-l}\kappa)\lVert \mathcal{A}_l(p_{app}) - \mathcal{B}_l(q) \rVert \\
+        & A_l'(p_{app})  \,\,\, $otherwise$
+\end{align} $$
+
+Where $U_l$ is the $l$ -th level of the pyramid $U$ (0 being the finest), and $\mathcal{U}_l(p)$ is a concatenation of all feature vectors in a neighborhood around $p$, at levels $l$ and $l+1$.
+
+I used =libANN= for nearest-neighbor queries, and brute-force for the computation of the optimal $p_{coh}$.
+
+** Main implementation hurdles
+
+Most improvements to the pathtracer were rather straightforward to implement, or had existing reference materials -- such was the case for the GGX probability distribution, for instance. Correctly implementing light path expression filtering was a bit more complicated : while not changing the main algorithm at all, it required substantial changes to the flow of data throughout the program. Rather than just carrying RGB light, ray tracing functions now have to accumulate information about every bounce onto a =LightTree= data structure. 
+
+As for image analogies, I made a few unsuccessful attempts before reaching a correct implementation. I initially used simple hand-crafted math data structures, which made building the neighborhood vectors as well as interfacing with =libANN= rather difficult. In the current implementation, I use =Eigen= to store and manipulate image data. This makes vector operations much more comfortable to use. Because =Eigen= does not support 2D arrays of vectors, I implemented a simple wrapper called =EigenArray2D=, which allowed me to index into feature images intuitively. 
+
+Furthermore, interfacing with =libANN= proved error-prone as well. The library makes heavy use of C-style arrays in place of STL containers, which is in itself manageable though it requires rigorous bounds checking and data layout considerations. However, =libANN= provides destructors for its objects but no copy constructors or assignment operators. As such, it would often pull the rug from under my program without warning : for instance, the automatic resizing of an =std::vector= of ANN kd-trees would release the allocated memory of the trees without transferring it to the new copies. This resulted in data corruption, which was difficult to debug. 
+
+Finally, a particular issue took much longer to fix than I would like to admit. To display and save images, I copied data from =Eigen= arrays to my own =Buffer2D= data structures. Because =Eigen= arrays are stored in column-major order by default, I interpreted color data which was laid out as =RRRRGGGGBBBB= as =RGBRGBRGBRGB=. This resulted in puzzling corrupted images, one of which is displayed below. Because the results displayed some noticeable structure rather than being entirely gibberish, I initially faulted my algorithms rather than my data layout, which proved both time-consuming and unsuccessful.
+
+Unfortunately, I did not have time to implement the error-budgeting and clever patch distribution of /StyLit/ : as such, my program is merely an implementation of /Image Analogies/ with light path expression passes as feature vectors. Still, the results are quite interesting.
+
+
+
+* Results
+
