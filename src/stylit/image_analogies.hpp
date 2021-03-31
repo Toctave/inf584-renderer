@@ -21,6 +21,7 @@ struct ImagePair {
 struct ImageAnalogySystem {
     size_t levels;
     float kappa;
+    float epsilon;
 
     std::vector<ANNpointArray> neighborhoods;
 
@@ -34,7 +35,8 @@ struct ImageAnalogySystem {
 		       const FeatureImage& source_filtered_img,
 		       const FeatureImage& target_unfiltered_img,
 		       size_t levels,
-		       float kappa);
+		       float kappa,
+		       float epsilon);
 };
 
 FeatureImage multichannel_image(const std::vector<Buffer2D<RGBColor>>& images);

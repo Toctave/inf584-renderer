@@ -76,6 +76,8 @@ struct StylitArgs {
     std::string output_file;
     size_t levels;
     float kappa;
+    float epsilon;
+    bool gui;
 };
 
 void print_usage() {
@@ -87,6 +89,8 @@ StylitArgs parse_args(int argc, char** argv) {
 
     args.levels = 6;
     args.kappa = 0.0f;
+    args.epsilon = 0.0f;
+    args.gui = true;
 
     int img_index = 0;
     int i = 1;
@@ -100,6 +104,11 @@ StylitArgs parse_args(int argc, char** argv) {
 	} else if (arg == "--levels") {
 	    args.levels = parse<size_t>(argv[i+1]);
 	    i++;
+	} else if (arg == "--epsilon") {
+	    args.epsilon = parse<float>(argv[i+1]);
+	    i++;
+	} else if (arg == "--no-gui") {
+	    args.gui = false;
 	} else if (arg == ",") {
 	    args.images[img_index] = multichannel_image(read_images);
 	    
@@ -134,14 +143,18 @@ int main(int argc, char** argv) {
 			      args.images[1],
 			      args.images[2],
 			      args.levels,
-			      args.kappa);
+			      args.kappa,
+			      args.epsilon);
 
     StylitThreadData thread_data{sync, system};
 
-    SDL_Thread* thread = SDL_CreateThread(stylit_thread, "stylit", &thread_data);
-    display(sync, system);
-
-    SDL_WaitThread(thread, nullptr);
+    if (args.gui) {
+	SDL_Thread* thread = SDL_CreateThread(stylit_thread, "stylit", &thread_data);
+	display(sync, system);
+	SDL_WaitThread(thread, nullptr);
+    } else {
+	stylit_thread(&thread_data);
+    }
 
     std::ofstream output_file(args.output_file);
     write_png(to_rgb8(feature_to_rgb(system.target.filtered[0])), output_file);

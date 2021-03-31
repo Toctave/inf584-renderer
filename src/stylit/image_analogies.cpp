@@ -53,13 +53,14 @@ static Eigen::ArrayXXf get_neighborhood(const FeatureImage& features, Vec2s p, s
 	p[0] - radius,
 	p[1] - radius,
 	diameter,
-	diameter);
+	diameter) / (diameter * diameter);
 }
 
 static Eigen::ArrayXXf get_partial_neighborhood(const FeatureImage& features, Vec2s p, size_t radius) {
     // return the neighborhood up until the center, in scan-line order
 
     size_t diameter = 2 * radius + 1;
+    size_t area = diameter * radius + radius;
     
     return concat(features.block(
 		      p[0] - radius,
@@ -70,7 +71,7 @@ static Eigen::ArrayXXf get_partial_neighborhood(const FeatureImage& features, Ve
 		      p[0],
 		      p[1] - radius,
 		      1,
-		      radius));
+		      radius)) / area;
 }
 
 static Eigen::ArrayXXf get_bilevel_neighborhood(
@@ -132,7 +133,7 @@ static Eigen::ArrayXXf get_neighborhood(
     return concat(neigh_unfiltered, neigh_filtered);
 }
 
-// TODO : actually use a gaussian filter
+// TODO : actually use a gaussian filter (here a 2x2 box filter is used)
 static std::vector<FeatureImage>
 build_gaussian_pyramid(const FeatureImage& base, size_t levels) {
     std::vector<FeatureImage> pyramid;
@@ -170,8 +171,7 @@ static Vec2s source_pixel_from_idx(const ImageAnalogySystem& system, size_t leve
 }
 
 static Vec2s
-best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q, float& dist2_out) {
-    static const float eps = .1f; // TODO : pick a value for eps
+best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q, float dist2_max, float& dist2_out) {
     Eigen::ArrayXXf query = get_neighborhood(
 	system.target.unfiltered[level], q, fine_radius
 	);
@@ -184,7 +184,7 @@ best_approximate_match(const ImageAnalogySystem& system, size_t level, Vec2s q, 
 	    1,
 	    &result_idx,
 	    &dist2_out,
-	    eps);
+	    system.epsilon);
 
     Vec2s result = source_pixel_from_idx(system, level, result_idx);
     return result;
@@ -204,7 +204,7 @@ best_coherence_match(const ImageAnalogySystem& system, size_t level, Vec2s q, fl
 	    
 	    if (candidate_in_source[0] < 2 || candidate_in_source[0] + 2 >= system.source.filtered[level].rows()
 		|| candidate_in_source[1] < 2 || candidate_in_source[1] + 2 >= system.source.filtered[level].columns()) {
-		// this is a hack to avoid messing with border conditions for now
+		// this is a hack to avoid border conditions for now
 		// TODO : properly handle such cases
 		continue;
 	    }
@@ -230,8 +230,8 @@ static Vec2s
 best_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
     float d_app, d_coh;
     
-    Vec2s p_app = best_approximate_match(system, level, q, d_app);
     Vec2s p_coh = best_coherence_match(system, level,  q, d_coh);
+    Vec2s p_app = best_approximate_match(system, level, q, d_coh, d_app);
 
     if (d_coh < d_app * (1.0f * std::pow(.5f, level) * system.kappa)) {
 	return p_coh;
@@ -252,7 +252,7 @@ Vec2s brute_force_best_match(const ImageAnalogySystem& system, size_t level, Vec
 	    auto neigh_p = get_neighborhood(system.source, level, p);
 	    
 	    float d2 = (neigh_p - neigh_q).matrix().squaredNorm();
-	    // std::cout << q << p << d2 << "\n";
+
 	    if (d2 < d2max) {
 		result = p;
 		d2max = d2;
@@ -264,23 +264,17 @@ Vec2s brute_force_best_match(const ImageAnalogySystem& system, size_t level, Vec
 }
 
 void solve(ImageAnalogySystem& system) {
-    std::cout << "Solving!\n";
+    std::cout << "Solving\n";
     for (size_t l = system.levels - 1; l < system.levels; l--) {
 	std::cout << "level " << l << "\n";
 	Vec2s q;
 	for(q[0] = 2; q[0] + 2 < system.target.filtered[l].rows(); q[0]++) {
-	    std::cout << "row " << q[0] << " / " << system.target.filtered[l].rows() << "\n";
 	    for(q[1] = 2; q[1] + 2 < system.target.filtered[l].columns(); q[1]++) {
 		Vec2s p = best_match(system, l, q);
 		system.target.filtered[l](q) = system.source.filtered[l](p);
 		system.assignments[l](q) = p;
-		// std::cout << "dist : " << result_dist << "\n";
-		// std::cout << "query : " << q << "\n";
-		// float d = feature_diff_neighbourhood(system, l, p, q);
-		// std::cout << "result : " << p << ", diff " << d << "\n";
 	    }
 	}
-	// break;
     }
 }
 
@@ -288,8 +282,9 @@ ImageAnalogySystem::ImageAnalogySystem(const FeatureImage& source_unfiltered_img
 				       const FeatureImage& source_filtered_img,
 				       const FeatureImage& target_unfiltered_img,
 				       size_t levels,
-				       float kappa)
-    : levels(levels), kappa(kappa) {
+				       float kappa,
+				       float epsilon)
+    : levels(levels), kappa(kappa), epsilon(epsilon) {
 
     if (source_unfiltered_img.depth() != target_unfiltered_img.depth()) {
 	throw std::runtime_error("Channel count mismatch in input images");
@@ -342,7 +337,6 @@ ImageAnalogySystem::ImageAnalogySystem(const FeatureImage& source_unfiltered_img
 
 	size_t nb_idx = 0;
 	for (p[0] = 2; p[0] + 2 < source.unfiltered[lvl].rows(); p[0]++) {
-	    std::cout << "Building row " << p[0] << "\n";
 	    for (p[1] = 2; p[1] + 2 < source.unfiltered[lvl].columns(); p[1]++) {
 		Eigen::ArrayXXf neigh = get_neighborhood(source.unfiltered[lvl], p, fine_radius);
 		assert(neigh.size() == neighborhood_dims);
