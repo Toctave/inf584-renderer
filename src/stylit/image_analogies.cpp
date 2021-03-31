@@ -233,7 +233,7 @@ best_match(const ImageAnalogySystem& system, size_t level, Vec2s q) {
     Vec2s p_coh = best_coherence_match(system, level,  q, d_coh);
     Vec2s p_app = best_approximate_match(system, level, q, d_coh, d_app);
 
-    if (d_coh < d_app * (1.0f * std::pow(.5f, level) * system.kappa)) {
+    if (d_coh <= d_app * (1.0f + std::pow(.5f, level)) * system.kappa) {
 	return p_coh;
     } else {
 	return p_app;
