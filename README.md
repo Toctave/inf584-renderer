@@ -1,5 +1,13 @@
 # INF584 renderer & StyLit implementation
 
+![StyLit demonstration image](report/beauty.png)
+
+## What is this ?
+
+This repository is a from-scratch implementation of a pathtracer, along with an implementation of the paper "StyLit: Illumination-Guided Example-Based Stylization of 3D Renderings" by Fišer et al.
+
+The above image illustrates the subject of the paper : given a simple render of a glossy ball (top-left), and a stylized version of it that was drawn by hand (top-right), the algorithm is able to synthesize a stylized version of any render (bottom row). For more detail, see [the full report](report/main.pdf). 
+
 ## Build instructions
 
 SDL must be installed (`sudo apt install libsdl2-dev` on a Debian-based distro). All other dependencies are included
