@@ -6,7 +6,7 @@
 
 This repository is a from-scratch implementation of a pathtracer, along with an implementation of the paper "StyLit: Illumination-Guided Example-Based Stylization of 3D Renderings" by Fišer et al.
 
-The above image illustrates the subject of the paper : given a simple render of a glossy ball (top-left), and a stylized version of it that was drawn by hand (top-right), the algorithm is able to synthesize a stylized version of any render (bottom row). For more detail, see [the full report](report/main.pdf). 
+The above image illustrates the subject of the paper : given a simple render of a glossy ball (top-left), and a stylized version of it that was drawn by hand (top-right), the algorithm is able to synthesize a stylized version of any render (bottom row). For more detail, see [my full report](report/main.pdf). 
 
 ## Build instructions
 
